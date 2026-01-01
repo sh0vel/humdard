@@ -1,0 +1,501 @@
+openapi: 3.0.3
+info:
+  title: Humdard Lyric Learning API
+  description: |
+    Production-ready API for converting raw song lyrics (Hindi/Devanagari) into structured JSON format for language learning.
+    
+    Uses OpenAI GPT-5.2 with structured outputs to generate comprehensive lyric lessons including:
+    - Romanization (simple, no diacritics)
+    - Word-by-word glosses
+    - Direct translations (literal + grammatical)
+    - Natural translations (expressive + fluent)
+    - Token breakdown with individual word glosses
+    
+    All data is stored in Cloudflare R2 with deterministic song IDs based on title and lyrics content.
+  version: 1.0.0
+  contact:
+    email: shovonh2k@gmail.com
+  license:
+    name: MIT
+
+servers:
+  - url: https://humdard-lyric-api.sh0vel.workers.dev
+    description: Production server
+
+tags:
+  - name: songs
+    description: Song listing and retrieval
+  - name: generation
+    description: Lyric lesson generation
+
+paths:
+  /api/songs:
+    get:
+      tags:
+        - songs
+      summary: List all songs
+      description: Returns metadata for all stored songs, sorted by update time (newest first). Supports ETag-based caching.
+      operationId: listSongs
+      parameters:
+        - name: If-None-Match
+          in: header
+          description: ETag from previous response for conditional request
+          schema:
+            type: string
+          example: '"a3f5e8d9c4b7"'
+      responses:
+        '200':
+          description: Successful response with song list
+          headers:
+            ETag:
+              description: Hash of response body for cache validation
+              schema:
+                type: string
+              example: '"a3f5e8d9c4b7"'
+            Cache-Control:
+              description: Cache control directive
+              schema:
+                type: string
+              example: 'public, max-age=60'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SongsListResponse'
+        '304':
+          description: Not Modified - cached content is still valid
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/songs/{songId}:
+    get:
+      tags:
+        - songs
+      summary: Get a specific song
+      description: Returns the complete LyricLesson JSON for a specific song
+      operationId: getSong
+      parameters:
+        - name: songId
+          in: path
+          required: true
+          description: Unique song identifier (format: {slug}-{hash})
+          schema:
+            type: string
+          example: humdard-5e22f906
+        - name: tokens
+          in: query
+          description: Include token arrays in response (default true)
+          schema:
+            type: boolean
+            default: true
+          example: false
+      responses:
+        '200':
+          description: Successful response with complete lesson
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LyricLesson'
+        '400':
+          description: Invalid song ID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Song not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: NOT_FOUND
+                  message: Song not found
+
+  /api/jsonify:
+    post:
+      tags:
+        - generation
+      summary: Convert raw lyrics to structured format
+      description: |
+        Processes raw Hindi lyrics using OpenAI GPT-5.2 to generate a complete LyricLesson.
+        
+        The API will:
+        1. Normalize and validate input lyrics
+        2. Generate deterministic song ID from title and lyrics
+        3. Call OpenAI API with structured output schema
+        4. Validate the generated lesson
+        5. Store in R2 (overwrites if same song ID exists)
+        6. Return metadata including token usage and cost
+        
+        **Note:** This operation can take 15-30 seconds depending on lyrics length.
+      operationId: jsonifyLyrics
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsonifyRequest'
+            example:
+              rawLyrics: |
+                हमदर्द है ये
+                बेवफा नहीं है
+                पल दो पल की ही क्यों है ज़िन्दगी
+              titleHint: Humdard
+              artistHint: Arijit Singh
+              language:
+                target: hi
+                learner: en
+      responses:
+        '201':
+          description: Lesson created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsonifyResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Storage error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: AI generation error or bad model output
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    SongsListResponse:
+      type: object
+      required:
+        - songs
+      properties:
+        songs:
+          type: array
+          items:
+            $ref: '#/components/schemas/SongMetadata'
+      example:
+        songs:
+          - songId: humdard-5e22f906
+            title: Humdard
+            artist: Arijit Singh
+            language:
+              target: hi
+              learner: en
+            createdAt: '2025-12-31T23:44:26.482Z'
+            updatedAt: '2025-12-31T23:44:26.482Z'
+            openaiUsage:
+              promptTokens: 1234
+              completionTokens: 2013
+              totalTokens: 3247
+              estimatedCostUSD: 0.022598
+
+    SongMetadata:
+      type: object
+      required:
+        - songId
+        - title
+        - language
+        - createdAt
+        - updatedAt
+      properties:
+        songId:
+          type: string
+          description: Deterministic ID (format {slug}-{hash})
+          example: humdard-5e22f906
+        title:
+          type: string
+          example: Humdard
+        artist:
+          type: string
+          example: Arijit Singh
+        language:
+          type: object
+          required:
+            - target
+            - learner
+          properties:
+            target:
+              type: string
+              example: hi
+            learner:
+              type: string
+              example: en
+        createdAt:
+          type: string
+          format: date-time
+          example: '2025-12-31T23:44:26.482Z'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2025-12-31T23:44:26.482Z'
+        openaiUsage:
+          $ref: '#/components/schemas/OpenAIUsage'
+
+    OpenAIUsage:
+      type: object
+      required:
+        - promptTokens
+        - completionTokens
+        - totalTokens
+        - estimatedCostUSD
+      properties:
+        promptTokens:
+          type: integer
+          description: Number of tokens in the prompt
+          example: 1234
+        completionTokens:
+          type: integer
+          description: Number of tokens in the completion
+          example: 2013
+        totalTokens:
+          type: integer
+          description: Total tokens used
+          example: 3247
+        estimatedCostUSD:
+          type: number
+          format: double
+          description: Estimated cost in USD (GPT-5.2 pricing)
+          example: 0.022598
+
+    JsonifyRequest:
+      type: object
+      required:
+        - rawLyrics
+      properties:
+        rawLyrics:
+          type: string
+          description: Raw lyrics text (max 30,000 characters)
+          maxLength: 30000
+          example: |
+            हमदर्द है ये
+            बेवफा नहीं है
+        titleHint:
+          type: string
+          description: Song title hint (optional, AI will infer if not provided)
+          example: Humdard
+        artistHint:
+          type: string
+          description: Artist name hint (optional)
+          example: Arijit Singh
+        language:
+          type: object
+          description: Language pair (defaults to hi/en)
+          properties:
+            target:
+              type: string
+              default: hi
+              example: hi
+            learner:
+              type: string
+              default: en
+              example: en
+
+    JsonifyResponse:
+      type: object
+      required:
+        - songId
+        - songMeta
+      properties:
+        songId:
+          type: string
+          description: Generated song ID
+          example: humdard-5e22f906
+        songMeta:
+          $ref: '#/components/schemas/SongMetadata'
+
+    LyricLesson:
+      type: object
+      required:
+        - schemaVersion
+        - lessonId
+        - title
+        - language
+        - source
+        - sections
+      properties:
+        schemaVersion:
+          type: string
+          enum:
+            - '1.0.0'
+          example: '1.0.0'
+        lessonId:
+          type: string
+          example: humdard-5e22f906
+        title:
+          type: string
+          example: Humdard
+        language:
+          type: object
+          required:
+            - target
+            - learner
+          properties:
+            target:
+              type: object
+              required:
+                - iso
+                - script
+              properties:
+                iso:
+                  type: string
+                  example: hi
+                script:
+                  type: string
+                  example: Deva
+            learner:
+              type: object
+              required:
+                - iso
+              properties:
+                iso:
+                  type: string
+                  example: en
+        source:
+          type: object
+          properties:
+            artist:
+              type: string
+              example: Arijit Singh
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/LyricSection'
+
+    LyricSection:
+      type: object
+      required:
+        - sectionId
+        - label
+        - order
+        - lines
+      properties:
+        sectionId:
+          type: string
+          example: main
+        label:
+          type: string
+          example: Main
+        order:
+          type: integer
+          example: 1
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/LyricLine'
+
+    LyricLine:
+      type: object
+      required:
+        - lineId
+        - order
+        - text
+        - tokens
+      properties:
+        lineId:
+          type: string
+          example: l001
+        order:
+          type: integer
+          example: 1
+        text:
+          type: object
+          required:
+            - target
+            - roman
+            - wordByWord
+            - direct
+            - natural
+          properties:
+            target:
+              type: string
+              description: Original Hindi/Devanagari text
+              example: हमदर्द है ये
+            roman:
+              type: string
+              description: Simple romanization (no diacritics)
+              example: hamdard hai ye
+            wordByWord:
+              type: string
+              description: Token-order literal gloss (intentionally ungrammatical)
+              example: companion is this
+            direct:
+              type: string
+              description: Literal + grammatical English translation
+              example: This is a companion
+            natural:
+              type: string
+              description: Fluent, expressive English translation
+              example: This is a true companion
+        tokens:
+          type: array
+          items:
+            $ref: '#/components/schemas/LyricToken'
+
+    LyricToken:
+      type: object
+      required:
+        - id
+        - surface
+        - roman
+        - gloss
+      properties:
+        id:
+          type: string
+          example: t001
+        surface:
+          type: string
+          description: Hindi word as it appears
+          example: हमदर्द
+        roman:
+          type: string
+          description: Romanization (no diacritics)
+          example: hamdard
+        gloss:
+          type: string
+          description: English meaning/grammatical function
+          example: companion/sympathizer
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              enum:
+                - VALIDATION_ERROR
+                - NOT_FOUND
+                - AI_GENERATION_ERROR
+                - BAD_MODEL_OUTPUT
+                - STORAGE_ERROR
+                - INTERNAL_ERROR
+                - INVALID_SONG_ID
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: Invalid request data
+            details:
+              oneOf:
+                - type: string
+                - type: object
+              example: rawLyrics exceeds maximum length of 30000 characters

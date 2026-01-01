@@ -1,0 +1,81 @@
+.song-picker {
+    padding: 2rem 0;
+}
+
+.song-picker-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #212121;
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.song-picker-loading,
+.song-picker-error,
+.song-picker-empty {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #666;
+}
+
+.song-picker-empty .hint {
+    margin-top: 0.5rem;
+    font-size: 0.95rem;
+    color: #999;
+}
+
+.song-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.song-item {
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.2s;
+}
+
+.song-item:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.song-button {
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 1.25rem 1.5rem;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.song-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1;
+}
+
+.song-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #212121;
+}
+
+.song-artist {
+    font-size: 0.95rem;
+    color: #757575;
+}
+
+.song-updated {
+    font-size: 0.875rem;
+    color: #999;
+    white-space: nowrap;
+}

@@ -1,0 +1,41 @@
+.app {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: #fafafa;
+}
+
+.main {
+    flex: 1;
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+.loading,
+.error {
+    text-align: center;
+    padding: 3rem 1rem;
+    font-size: 1.125rem;
+    color: #666;
+}
+
+.error {
+    color: #d32f2f;
+}
+
+.error button {
+    margin-top: 1rem;
+    padding: 0.5rem 1.5rem;
+    background: #1976d2;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.error button:hover {
+    background: #1565c0;
+}

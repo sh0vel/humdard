@@ -1,0 +1,25 @@
+name = "humdard-lyric-api"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+# R2 Bucket Binding
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "lyric-lessons"
+
+# Environment Variables
+[vars]
+ALLOWED_ORIGINS = "*"
+OPENAI_MODEL = "gpt-5.2"
+
+# Secrets (set via wrangler secret put)
+# - OPENAI_API_KEY: Your OpenAI API key
+
+# Development configuration
+[env.development]
+vars = { ALLOWED_ORIGINS = "*", OPENAI_MODEL = "gpt-5.2" }
+
+# Production configuration
+[env.production]
+# Set specific allowed origins in production
+# vars = { ALLOWED_ORIGINS = "https://yourdomain.com,https://app.yourdomain.com" }

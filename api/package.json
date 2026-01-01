@@ -1,0 +1,25 @@
+{
+    "name": "humdard-lyric-api",
+    "version": "1.0.0",
+    "description": "Cloudflare Worker API for lyric learning webapp",
+    "main": "src/index.ts",
+    "scripts": {
+        "dev": "wrangler dev",
+        "deploy": "wrangler deploy",
+        "tail": "wrangler tail"
+    },
+    "keywords": [
+        "cloudflare",
+        "workers",
+        "lyrics",
+        "language-learning",
+        "hindi"
+    ],
+    "author": "",
+    "license": "MIT",
+    "devDependencies": {
+        "@cloudflare/workers-types": "^4.20241127.0",
+        "typescript": "^5.3.3",
+        "wrangler": "^3.85.0"
+    }
+}

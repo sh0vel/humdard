@@ -40,3 +40,16 @@ export async function jsonifyLyrics(payload) {
 
     return response.json();
 }
+
+export async function deleteSong(songId) {
+    const response = await fetch(`${API_BASE_URL}/api/songs/${songId}`, {
+        method: 'DELETE',
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
+        throw new Error(error.error?.message || 'Failed to delete song');
+    }
+
+    return response.json();
+}

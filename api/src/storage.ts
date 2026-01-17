@@ -114,6 +114,25 @@ export async function putMeta(
 }
 
 /**
+ * Delete a song and its metadata from R2
+ */
+export async function deleteSong(
+  env: Env,
+  songId: string
+): Promise<void> {
+  try {
+    // Delete both the song data and metadata
+    await Promise.all([
+      env.BUCKET.delete(getSongKey(songId)),
+      env.BUCKET.delete(getMetaKey(songId)),
+    ]);
+  } catch (error) {
+    console.error('Error deleting song from R2:', error);
+    throw error;
+  }
+}
+
+/**
  * List all song metadata from R2
  */
 export async function listMetas(env: Env): Promise<SongMetadata[]> {

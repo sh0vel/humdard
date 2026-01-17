@@ -194,9 +194,20 @@
 }
 
 @media (max-width: 600px) {
+    .modal-overlay {
+        padding: 0;
+        align-items: flex-start;
+    }
+
     .modal-content {
-        border-radius: 12px 12px 0 0;
-        max-height: 95vh;
+        min-height: 100vh;
+        max-height: none;
+        border-radius: 0;
+        overflow-y: auto;
+    }
+
+    .modal-form {
+        padding-bottom: 2rem;
     }
     .modal-header {
         padding: 1.25rem;

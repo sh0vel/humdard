@@ -11,20 +11,29 @@ function Header({
   onToggleNatural,
   onAddClick, 
   showBackButton, 
-  onBackClick 
+  onBackClick,
+  showBottomBar
 }) {
   return (
-    <header className="header">
-      <div className="header-content">
-        {showBackButton && (
-          <button className="back-button" onClick={onBackClick} aria-label="Back to songs">
-            ← Back
+    <>
+      <header className="header">
+        <div className="header-content">
+          {showBackButton && (
+            <button className="back-button" onClick={onBackClick} aria-label="Back to songs">
+              ← Back
+            </button>
+          )}
+          
+          <h1 className="header-title">Samajh</h1>
+          
+          <button className="add-button" onClick={onAddClick}>
+            + Add Lyrics
           </button>
-        )}
-        
-        <h1 className="header-title">Humdard</h1>
-        
-        <div className="header-actions">
+        </div>
+      </header>
+
+      {showBottomBar && (
+        <div className="bottom-bar">
           <label className="toggle-label">
             <input
               type="checkbox"
@@ -32,7 +41,8 @@ function Header({
               onChange={onToggleHindi}
               className="toggle-checkbox"
             />
-            <span className="toggle-text">हिंदी</span>
+            <span className="toggle-text">हिं</span>
+            <span className="toggle-label-text">Hindi</span>
           </label>
 
           <label className="toggle-label">
@@ -42,7 +52,8 @@ function Header({
               onChange={onToggleWordByWord}
               className="toggle-checkbox"
             />
-            <span className="toggle-text">Word-by-Word</span>
+            <span className="toggle-text">W</span>
+            <span className="toggle-label-text">Word</span>
           </label>
 
           <label className="toggle-label">
@@ -52,7 +63,8 @@ function Header({
               onChange={onToggleDirect}
               className="toggle-checkbox"
             />
-            <span className="toggle-text">Direct</span>
+            <span className="toggle-text">D</span>
+            <span className="toggle-label-text">Direct</span>
           </label>
 
           <label className="toggle-label">
@@ -62,15 +74,12 @@ function Header({
               onChange={onToggleNatural}
               className="toggle-checkbox"
             />
-            <span className="toggle-text">Natural</span>
+            <span className="toggle-text">N</span>
+            <span className="toggle-label-text">Natural</span>
           </label>
-          
-          <button className="add-button" onClick={onAddClick}>
-            + Add Lyrics
-          </button>
         </div>
-      </div>
-    </header>
+      )}
+    </>
   );
 }
 

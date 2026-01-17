@@ -17,20 +17,18 @@ function LyricsViewer({ lesson, showHindi, showWordByWord, showDirect, showNatur
       </div>
 
       <div className="lyrics-content">
-        {lesson.sections.map((section) => (
-          <div key={section.sectionId} className="section">
-            {section.lines.map((line) => (
-              <LyricLine
-                key={line.lineId}
-                line={line}
-                showHindi={showHindi}
-                showWordByWord={showWordByWord}
-                showDirect={showDirect}
-                showNatural={showNatural}
-              />
-            ))}
-          </div>
-        ))}
+        {lesson.sections.flatMap((section) =>
+          section.lines.map((line) => (
+            <LyricLine
+              key={line.lineId}
+              line={line}
+              showHindi={showHindi}
+              showWordByWord={showWordByWord}
+              showDirect={showDirect}
+              showNatural={showNatural}
+            />
+          ))
+        )}
       </div>
     </div>
   );

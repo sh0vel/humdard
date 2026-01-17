@@ -5,7 +5,7 @@
 
 import { Env, JsonifyResponse, SongsListResponse, SongMetadata, LyricLesson, LyricLine } from './types';
 import { handleCorsPreFlight, addCorsHeaders } from './cors';
-import { getSong, putSong, listMetas, putMeta } from './storage';
+import { getSong, putSong, listMetas, putMeta, deleteSong } from './storage';
 import { generateLyricLesson } from './openai';
 import { validateJsonifyRequest, validateLyricLesson, ValidationError, normalizeLyrics } from './validate';
 import { generateSongId, generateFullHash } from './utils';
@@ -32,6 +32,9 @@ export default {
       } else if (path.startsWith('/api/songs/') && request.method === 'GET') {
         const songId = path.split('/api/songs/')[1];
         response = await handleGetSong(request, env, songId);
+      } else if (path.startsWith('/api/songs/') && request.method === 'DELETE') {
+        const songId = path.split('/api/songs/')[1];
+        response = await handleDeleteSong(request, env, songId);
       } else if (path === '/api/jsonify' && request.method === 'POST') {
         response = await handleJsonify(request, env);
       } else {
@@ -174,6 +177,46 @@ async function handleGetSong(request: Request, env: Env, songId: string): Promis
         error: {
           code: 'STORAGE_ERROR',
           message: 'Failed to retrieve song',
+          details: error instanceof Error ? error.message : String(error),
+        },
+      },
+      500
+    );
+  }
+}
+
+/**
+ * DELETE /api/songs/:songId - Delete a song
+ */
+async function handleDeleteSong(request: Request, env: Env, songId: string): Promise<Response> {
+  try {
+    if (!songId || songId.trim() === '') {
+      return jsonResponse(
+        { error: { code: 'INVALID_SONG_ID', message: 'Song ID is required' } },
+        400
+      );
+    }
+
+    // Check if song exists
+    const song = await getSong(env, songId);
+    if (!song) {
+      return jsonResponse(
+        { error: { code: 'NOT_FOUND', message: 'Song not found' } },
+        404
+      );
+    }
+
+    // Delete the song
+    await deleteSong(env, songId);
+
+    return jsonResponse({ success: true, songId }, 200);
+  } catch (error) {
+    console.error('Error in handleDeleteSong:', error);
+    return jsonResponse(
+      {
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to delete song',
           details: error instanceof Error ? error.message : String(error),
         },
       },

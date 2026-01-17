@@ -43,8 +43,13 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
+.song-item-content {
+    display: flex;
+    align-items: stretch;
+}
+
 .song-button {
-    width: 100%;
+    flex: 1;
     background: none;
     border: none;
     padding: 1.25rem 1.5rem;
@@ -78,4 +83,102 @@
     font-size: 0.875rem;
     color: #999;
     white-space: nowrap;
+}
+
+.delete-button {
+    background: none;
+    border: none;
+    border-left: 1px solid #f0f0f0;
+    padding: 0 1.25rem;
+    color: #d32f2f;
+    font-size: 1.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+}
+
+.song-item:hover .delete-button {
+    opacity: 1;
+}
+
+.delete-button:hover:not(:disabled) {
+    background: #ffebee;
+}
+
+.delete-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.confirm-dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.confirm-dialog {
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    max-width: 400px;
+    width: 90%;
+}
+
+.confirm-dialog h3 {
+    margin: 0 0 1rem 0;
+    color: #212121;
+}
+
+.confirm-dialog p {
+    margin: 0 0 1.5rem 0;
+    color: #616161;
+}
+
+.confirm-dialog-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+}
+
+.confirm-dialog-buttons button {
+    padding: 0.5rem 1.5rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+.confirm-dialog-buttons button:first-child {
+    background: #e0e0e0;
+    color: #212121;
+}
+
+.confirm-dialog-buttons button:first-child:hover {
+    background: #d5d5d5;
+}
+
+.confirm-delete {
+    background: #f44336 !important;
+    color: white !important;
+}
+
+.confirm-delete:hover {
+    background: #d32f2f !important;
+}
+
+@media (max-width: 600px) {
+    .delete-button {
+        opacity: 1;
+    }
 }

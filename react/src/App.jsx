@@ -10,7 +10,7 @@ function App() {
   const [showHindi, setShowHindi] = useState(false);
   const [showWordByWord, setShowWordByWord] = useState(false);
   const [showDirect, setShowDirect] = useState(false);
-  const [showNatural, setShowNatural] = useState(false);
+  const [showNatural, setShowNatural] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [lesson, setLesson] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -84,6 +84,7 @@ function App() {
         onAddClick={() => setShowAddModal(true)}
         showBackButton={!!lesson}
         onBackClick={handleBackToList}
+        showBottomBar={!!lesson}
       />
 
       <main className="main">

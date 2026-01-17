@@ -4,7 +4,7 @@
 
 import { Env } from './types';
 
-const DEFAULT_ALLOWED_METHODS = ['GET', 'POST', 'OPTIONS'];
+const DEFAULT_ALLOWED_METHODS = ['GET', 'POST', 'DELETE', 'OPTIONS'];
 const DEFAULT_ALLOWED_HEADERS = ['Content-Type', 'Authorization'];
 const DEFAULT_EXPOSED_HEADERS = ['ETag', 'Content-Type'];
 const DEFAULT_MAX_AGE = '86400'; // 24 hours

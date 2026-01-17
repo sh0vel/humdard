@@ -177,7 +177,43 @@ Preferred spellings when applicable:
 - main (for "मैं")
 - tu / tum / aap as appropriate
 - khuda, jannat, dhadkan, muskurahat, taaqat, hifaazat (choose one spelling and stick to it)
+==============================
+INPUT SCRIPT FLEXIBILITY
+==============================
 
+The input lyrics may be in:
+- Devanagari script (Hindi/Urdu)
+- Roman script (transliterated)
+- A mix of both
+
+REGARDLESS of input format:
+- Always analyze and understand the Hindi/Urdu meaning
+- Always produce Devanagari output in the "text" field (convert Roman to Devanagari if needed)
+- Always produce consistent Roman transliteration in the "roman" field
+- Maintain all other output requirements (wordByWord, direct, natural, tokens)
+
+If input is already in Roman script:
+- Infer the correct Devanagari spelling
+- Use context and common Hindi/Urdu words to disambiguate
+- Apply standard Devanagari orthography
+
+==============================
+INPUT CLEANING
+==============================
+
+The raw input may contain:
+- Artist names, credits, or attribution lines (e.g., "Artist: Arijit Singh")
+- Section labels (e.g., "[Verse 1]", "[Chorus]", "Antara:", "Mukhda:")
+- Annotations or metadata (e.g., "(x2)", "Repeat")
+- Extra whitespace or formatting
+
+BEFORE processing:
+- Remove all artist credits, section labels, and metadata
+- Extract only the actual lyric lines
+- Ignore non-lyric content
+- Process each clean lyric line as specified
+
+Do NOT include metadata as lyric content or attempt to translate it.
 Romanization should be readable and typeable by beginners.
 
 ==============================

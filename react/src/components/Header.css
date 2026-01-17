@@ -5,6 +5,7 @@
     top: 0;
     z-index: 100;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    overflow-x: hidden;
 }
 
 .header-content {
@@ -14,6 +15,7 @@
     display: flex;
     align-items: center;
     gap: 1rem;
+    flex-wrap: wrap;
 }
 
 .back-button {
@@ -78,6 +80,68 @@
 
 .add-button:hover {
     background: #1565c0;
+}
+
+.add-button:hover {
+    background: #1565c0;
+}
+
+.bottom-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    border-top: 1px solid #e0e0e0;
+    padding: 0.5rem 0.5rem calc(0.5rem + env(safe-area-inset-bottom));
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    z-index: 100;
+    box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.bottom-bar .toggle-checkbox {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.bottom-bar .toggle-label {
+    flex-direction: column;
+    gap: 0.125rem;
+    font-size: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    transition: all 0.2s;
+    background-color: transparent;
+}
+
+.bottom-bar .toggle-checkbox:checked ~ .toggle-text,
+.bottom-bar .toggle-checkbox:checked ~ .toggle-label-text {
+    color: #1976d2;
+    font-weight: 600;
+}
+
+.bottom-bar .toggle-label:active {
+    transform: scale(0.95);
+}
+
+.bottom-bar .toggle-text {
+    font-size: 1.25rem;
+    text-align: center;
+    line-height: 1;
+    color: #757575;
+    transition: all 0.2s;
+    font-weight: 400;
+}
+
+.bottom-bar .toggle-label-text {
+    font-size: 0.65rem;
+    text-align: center;
+    color: #757575;
+    transition: all 0.2s;
+    font-weight: 400;
 }
 
 @media (max-width: 600px) {

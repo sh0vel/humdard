@@ -117,8 +117,8 @@
     background-color: transparent;
 }
 
-.bottom-bar .toggle-checkbox:checked ~ .toggle-text,
-.bottom-bar .toggle-checkbox:checked ~ .toggle-label-text {
+.bottom-bar .toggle-checkbox:checked~.toggle-text,
+.bottom-bar .toggle-checkbox:checked~.toggle-label-text {
     color: #1976d2;
     font-weight: 600;
 }

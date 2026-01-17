@@ -48,7 +48,7 @@ export async function deleteSong(songId) {
 
     if (!response.ok) {
         const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
-        throw new Error(error.error?.message || 'Failed to delete song');
+        throw new Error(error.error ? .message || 'Failed to delete song');
     }
 
     return response.json();

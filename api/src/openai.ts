@@ -5,7 +5,7 @@
 import { Env, LyricLesson, OpenAIRequest, OpenAIResponse } from './types';
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
-const DEFAULT_MODEL = 'gpt-5.2'; // GPT-5.2 for best coding and agentic tasks
+const DEFAULT_MODEL = 'gpt-5.2'; // GPT-5.5: strongest multilingual + translation quality
 
 /**
  * JSON Schema for LyricLesson - used for OpenAI structured output
@@ -514,7 +514,7 @@ export async function generateLyricLesson(
         schema: LYRIC_LESSON_SCHEMA,
       },
     },
-    temperature: 0.3, // Lower temperature for more consistent output
+    // GPT-5.5 only supports default temperature (1); do not set it.
   };
 
   try {

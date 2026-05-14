@@ -5,8 +5,9 @@
 
 import { Env, JsonifyResponse, SongsListResponse, SongMetadata, LyricLesson, LyricLine } from './types';
 import { handleCorsPreFlight, addCorsHeaders } from './cors';
-import { getSong, putSong, listMetas, putMeta, deleteSong } from './storage';
+import { getSong, putSong, listMetas, putMeta, getMeta, deleteSong } from './storage';
 import { generateLyricLesson } from './openai';
+import { lookupLyrics } from './lookup';
 import { validateJsonifyRequest, validateLyricLesson, ValidationError, normalizeLyrics } from './validate';
 import { generateSongId, generateFullHash } from './utils';
 
@@ -37,6 +38,8 @@ export default {
         response = await handleDeleteSong(request, env, songId);
       } else if (path === '/api/jsonify' && request.method === 'POST') {
         response = await handleJsonify(request, env);
+      } else if (path === '/api/lookup' && request.method === 'POST') {
+        response = await handleLookup(request, env);
       } else {
         response = jsonResponse(
           { error: { code: 'NOT_FOUND', message: 'Endpoint not found' } },
@@ -323,7 +326,15 @@ async function handleJsonify(request: Request, env: Env): Promise<Response> {
     }
 
     // Generate final songId based on actual title from OpenAI
-    const finalSongId = await generateSongId(lesson.title, normalizedLyrics);
+    let finalSongId = await generateSongId(lesson.title, normalizedLyrics);
+
+    // If a song with this ID already exists, append a version suffix to avoid overwriting
+    if (await getSong(env, finalSongId)) {
+      let v = 2;
+      while (await getSong(env, `${finalSongId}-v${v}`)) v++;
+      finalSongId = `${finalSongId}-v${v}`;
+      console.log(`[jsonify] collision — using ${finalSongId}`);
+    }
 
     // Update lessonId to match songId
     lesson.lessonId = finalSongId;
@@ -390,6 +401,38 @@ async function handleJsonify(request: Request, env: Env): Promise<Response> {
         },
       },
       500
+    );
+  }
+}
+
+/**
+ * POST /api/lookup - Find candidate Devanagari lyrics for a given title/artist
+ */
+async function handleLookup(request: Request, env: Env): Promise<Response> {
+  try {
+    const body = await request.json().catch(() => null) as { title?: unknown; artist?: unknown } | null;
+    if (!body || typeof body.title !== 'string' || !body.title.trim()) {
+      return jsonResponse(
+        { error: { code: 'INVALID_REQUEST', message: 'title is required' } },
+        400
+      );
+    }
+    const title = body.title.trim().slice(0, 200);
+    const artist = typeof body.artist === 'string' ? body.artist.trim().slice(0, 200) : undefined;
+
+    const result = await lookupLyrics(env, title, artist);
+    return jsonResponse(result, 200);
+  } catch (error) {
+    console.error('Error in handleLookup:', error);
+    return jsonResponse(
+      {
+        error: {
+          code: 'LOOKUP_ERROR',
+          message: 'Failed to look up lyrics',
+          details: error instanceof Error ? error.message : String(error),
+        },
+      },
+      502
     );
   }
 }

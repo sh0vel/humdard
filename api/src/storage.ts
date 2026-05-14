@@ -89,10 +89,10 @@ export async function putMeta(
   metadata: Omit<SongMetadata, 'createdAt' | 'updatedAt'>
 ): Promise<SongMetadata> {
   const now = new Date().toISOString();
-  
+
   // Check if metadata already exists to preserve createdAt
   const existing = await getMeta(env, metadata.songId);
-  
+
   const songMeta: SongMetadata = {
     ...metadata,
     createdAt: existing?.createdAt || now,

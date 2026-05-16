@@ -8,6 +8,7 @@
 
 export interface Env {
   BUCKET: R2Bucket;
+  GENERATION_QUEUE: Queue<JsonifyQueueMessage>;
   OPENAI_API_KEY: string;
   OPENAI_MODEL?: string;
   ALLOWED_ORIGINS?: string;
@@ -30,6 +31,28 @@ export interface JsonifyRequest {
 export interface JsonifyResponse {
   songId: string;
   songMeta: SongMetadata;
+}
+
+export interface JsonifyQueuedResponse {
+  jobId: string;
+}
+
+export interface JsonifyQueueMessage {
+  jobId: string;
+  rawLyrics: string;
+  titleHint?: string;
+  artistHint?: string;
+  targetLang: string;
+  learnerLang: string;
+}
+
+export interface JobStatus {
+  jobId: string;
+  status: 'pending' | 'done' | 'error';
+  songId?: string;
+  errorMessage?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface SongsListResponse {

@@ -3,18 +3,25 @@
  * Main entry point with routing and request handlers
  */
 
-import { Env, JsonifyResponse, SongsListResponse, SongMetadata, LyricLesson, LyricLine } from './types';
+import { Env, JsonifyQueuedResponse, JsonifyQueueMessage, SongsListResponse, LyricLesson, LyricLine, JobStatus } from './types';
 import { handleCorsPreFlight, addCorsHeaders } from './cors';
-import { getSong, putSong, listMetas, putMeta, getMeta, deleteSong } from './storage';
-import { generateLyricLesson } from './openai';
+import { getSong, putSong, listMetas, putMeta, getMeta, deleteSong, updateLine, getJob, putJob } from './storage';
+import { generateLyricLesson, retranslateLine } from './openai';
 import { lookupLyrics } from './lookup';
 import { validateJsonifyRequest, validateLyricLesson, ValidationError, normalizeLyrics } from './validate';
 import { generateSongId, generateFullHash } from './utils';
 
 /**
- * Main request handler
+ * Main request handler + queue consumer
  */
 export default {
+  async queue(batch: MessageBatch<JsonifyQueueMessage>, env: Env): Promise<void> {
+    for (const message of batch.messages) {
+      await processGenerationJob(env, message.body);
+      message.ack();
+    }
+  },
+
   async fetch(request: Request, env: Env): Promise<Response> {
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
@@ -36,8 +43,20 @@ export default {
       } else if (path.startsWith('/api/songs/') && request.method === 'DELETE') {
         const songId = path.split('/api/songs/')[1];
         response = await handleDeleteSong(request, env, songId);
+      } else if (/^\/api\/songs\/[^/]+\/lines\/[^/]+$/.test(path) && request.method === 'PATCH') {
+        const [, , , songId, , lineId] = path.split('/');
+        response = await handleUpdateLine(request, env, songId, lineId);
+      } else if (/^\/api\/songs\/[^/]+\/lines\/[^/]+\/retranslate$/.test(path) && request.method === 'POST') {
+        const [, , , songId, , lineId] = path.split('/');
+        response = await handleRetranslateLine(request, env, songId, lineId);
+      } else if (/^\/api\/songs\/[^/]+\/retranslate$/.test(path) && request.method === 'POST') {
+        const songId = path.split('/')[3];
+        response = await handleRetranslateSong(request, env, songId);
       } else if (path === '/api/jsonify' && request.method === 'POST') {
         response = await handleJsonify(request, env);
+      } else if (path.startsWith('/api/jobs/') && request.method === 'GET') {
+        const jobId = path.split('/api/jobs/')[1];
+        response = await handleGetJob(request, env, jobId);
       } else if (path === '/api/lookup' && request.method === 'POST') {
         response = await handleLookup(request, env);
       } else {
@@ -191,7 +210,7 @@ async function handleGetSong(request: Request, env: Env, songId: string): Promis
 /**
  * DELETE /api/songs/:songId - Delete a song
  */
-async function handleDeleteSong(request: Request, env: Env, songId: string): Promise<Response> {
+async function handleDeleteSong(_request: Request, env: Env, songId: string): Promise<Response> {
   try {
     if (!songId || songId.trim() === '') {
       return jsonResponse(
@@ -229,179 +248,247 @@ async function handleDeleteSong(request: Request, env: Env, songId: string): Pro
 }
 
 /**
- * POST /api/jsonify - Convert raw lyrics to structured JSON
+ * POST /api/jsonify — Enqueue a song generation job; returns jobId immediately (202)
  */
 async function handleJsonify(request: Request, env: Env): Promise<Response> {
   try {
-    // Parse request body
     const body = await request.json().catch(() => null);
-    
     if (!body) {
-      return jsonResponse(
-        {
-          error: {
-            code: 'INVALID_JSON',
-            message: 'Request body must be valid JSON',
-          },
-        },
-        400
-      );
+      return jsonResponse({ error: { code: 'INVALID_JSON', message: 'Request body must be valid JSON' } }, 400);
     }
 
-    // Validate request
     let validatedRequest;
     try {
       validatedRequest = validateJsonifyRequest(body);
     } catch (error) {
       if (error instanceof ValidationError) {
-        return jsonResponse(
-          {
-            error: {
-              code: error.code,
-              message: error.message,
-              details: error.details,
-            },
-          },
-          400
-        );
+        return jsonResponse({ error: { code: error.code, message: error.message, details: error.details } }, 400);
       }
       throw error;
     }
 
     const { rawLyrics, titleHint, artistHint, language } = validatedRequest;
-
-    // Normalize lyrics
     const normalizedLyrics = normalizeLyrics(rawLyrics);
 
-    // Generate temporary song ID (will be used in lessonId, then refined)
-    const tempTitle = titleHint || 'untitled';
-    const tempSongId = await generateSongId(tempTitle, normalizedLyrics);
+    const jobId = crypto.randomUUID();
+    const now = new Date().toISOString();
 
-    // Call OpenAI to generate structured lesson
-    let lesson;
-    let openaiUsage: { promptTokens: number; completionTokens: number; totalTokens: number; estimatedCostUSD: number } | undefined;
-    try {
-      const result = await generateLyricLesson(
-        env,
-        normalizedLyrics,
-        titleHint,
-        artistHint,
-        tempSongId,
-        language!.target,
-        language!.learner
-      );
-      lesson = result.lesson;
-      openaiUsage = result.usage;
-    } catch (error) {
-      console.error('OpenAI generation error:', error);
-      return jsonResponse(
-        {
-          error: {
-            code: 'AI_GENERATION_ERROR',
-            message: 'Failed to generate structured lesson',
-            details: error instanceof Error ? error.message : String(error),
-          },
-        },
-        502
-      );
-    }
+    // Write pending job status to R2 so the client can poll immediately
+    await putJob(env, {
+      jobId,
+      status: 'pending',
+      createdAt: now,
+      updatedAt: now,
+    });
 
-    // Validate the generated lesson
-    try {
-      lesson = validateLyricLesson(lesson);
-    } catch (error) {
-      if (error instanceof ValidationError) {
-        return jsonResponse(
-          {
-            error: {
-              code: error.code,
-              message: error.message,
-              details: error.details,
-            },
-          },
-          502
-        );
-      }
-      throw error;
-    }
+    // Enqueue the generation work
+    await env.GENERATION_QUEUE.send({
+      jobId,
+      rawLyrics: normalizedLyrics,
+      titleHint,
+      artistHint,
+      targetLang: language!.target,
+      learnerLang: language!.learner,
+    });
 
-    // Generate final songId based on actual title from OpenAI
-    let finalSongId = await generateSongId(lesson.title, normalizedLyrics);
+    const responseBody: JsonifyQueuedResponse = { jobId };
+    return jsonResponse(responseBody, 202);
+  } catch (error) {
+    console.error('Error in handleJsonify:', error);
+    return jsonResponse(
+      { error: { code: 'INTERNAL_ERROR', message: 'An unexpected error occurred', details: error instanceof Error ? error.message : String(error) } },
+      500
+    );
+  }
+}
 
-    // If a song with this ID already exists, append a version suffix to avoid overwriting
+/**
+ * GET /api/jobs/:jobId — Poll generation job status
+ */
+async function handleGetJob(_request: Request, env: Env, jobId: string): Promise<Response> {
+  if (!jobId || jobId.includes('..') || jobId.includes('/')) {
+    return jsonResponse({ error: { code: 'INVALID_JOB_ID', message: 'Invalid job ID' } }, 400);
+  }
+  const job = await getJob(env, jobId);
+  if (!job) {
+    return jsonResponse({ error: { code: 'NOT_FOUND', message: 'Job not found' } }, 404);
+  }
+  return jsonResponse(job, 200);
+}
+
+/**
+ * Queue consumer — runs the actual OpenAI generation for a queued job
+ */
+async function processGenerationJob(env: Env, msg: JsonifyQueueMessage): Promise<void> {
+  const { jobId, rawLyrics, titleHint, artistHint, targetLang, learnerLang } = msg;
+
+  const updateJob = async (patch: Partial<JobStatus>) => {
+    const existing = (await getJob(env, jobId)) ?? {
+      jobId,
+      status: 'pending' as const,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    await putJob(env, { ...existing, ...patch, updatedAt: new Date().toISOString() });
+  };
+
+  try {
+    // Generate a temporary song ID for use during generation
+    const tempSongId = await generateSongId(titleHint || 'untitled', rawLyrics);
+
+    const { lesson, usage: openaiUsage } = await generateLyricLesson(
+      env,
+      rawLyrics,
+      titleHint,
+      artistHint,
+      tempSongId,
+      targetLang,
+      learnerLang
+    );
+
+    const validatedLesson = validateLyricLesson(lesson);
+
+    let finalSongId = await generateSongId(validatedLesson.title, rawLyrics);
     if (await getSong(env, finalSongId)) {
       let v = 2;
       while (await getSong(env, `${finalSongId}-v${v}`)) v++;
       finalSongId = `${finalSongId}-v${v}`;
-      console.log(`[jsonify] collision — using ${finalSongId}`);
     }
+    validatedLesson.lessonId = finalSongId;
 
-    // Update lessonId to match songId
-    lesson.lessonId = finalSongId;
-
-    // Store the lesson in R2
-    try {
-      await putSong(env, finalSongId, lesson);
-    } catch (error) {
-      console.error('Storage error:', error);
-      return jsonResponse(
-        {
-          error: {
-            code: 'STORAGE_ERROR',
-            message: 'Failed to store lesson',
-            details: error instanceof Error ? error.message : String(error),
-          },
-        },
-        500
-      );
-    }
-
-    // Store metadata to R2
-    let songMeta: SongMetadata;
-    try {
-      songMeta = await putMeta(env, {
-        songId: finalSongId,
-        title: lesson.title,
-        artist: lesson.source.artist,
-        language: {
-          target: language!.target,
-          learner: language!.learner,
-        },
-        openaiUsage,
-      });
-    } catch (error) {
-      console.error('Metadata storage error:', error);
-      return jsonResponse(
-        {
-          error: {
-            code: 'STORAGE_ERROR',
-            message: 'Failed to store metadata',
-            details: error instanceof Error ? error.message : String(error),
-          },
-        },
-        500
-      );
-    }
-
-    // Return response
-    const responseBody: JsonifyResponse = {
+    await putSong(env, finalSongId, validatedLesson);
+    await putMeta(env, {
       songId: finalSongId,
-      songMeta,
-    };
+      title: validatedLesson.title,
+      artist: validatedLesson.source.artist,
+      language: { target: targetLang, learner: learnerLang },
+      openaiUsage,
+    });
 
-    return jsonResponse(responseBody, 201);
+    await updateJob({ status: 'done', songId: finalSongId });
+    console.log(`[queue] job ${jobId} done → ${finalSongId}`);
   } catch (error) {
-    console.error('Error in handleJsonify:', error);
-    return jsonResponse(
-      {
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'An unexpected error occurred',
-          details: error instanceof Error ? error.message : String(error),
-        },
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error(`[queue] job ${jobId} failed:`, msg);
+    await updateJob({ status: 'error', errorMessage: msg });
+  }
+}
+
+/**
+ * PATCH /api/songs/:songId/lines/:lineId — manually update one line's translation fields
+ */
+async function handleUpdateLine(request: Request, env: Env, songId: string, lineId: string): Promise<Response> {
+  try {
+    const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+    if (!body) return jsonResponse({ error: { code: 'INVALID_JSON', message: 'Invalid JSON body' } }, 400);
+
+    const textUpdates: Record<string, string> = {};
+    for (const field of ['roman', 'wordByWord', 'direct', 'natural'] as const) {
+      if (typeof body[field] === 'string') textUpdates[field] = body[field] as string;
+    }
+
+    const updated = await updateLine(env, songId, lineId, { text: textUpdates });
+    if (!updated) return jsonResponse({ error: { code: 'NOT_FOUND', message: 'Song or line not found' } }, 404);
+
+    return jsonResponse({ ok: true }, 200);
+  } catch (error) {
+    return jsonResponse({ error: { code: 'INTERNAL_ERROR', message: String(error) } }, 500);
+  }
+}
+
+/**
+ * POST /api/songs/:songId/lines/:lineId/retranslate — AI re-translate one line with optional feedback
+ */
+async function handleRetranslateLine(request: Request, env: Env, songId: string, lineId: string): Promise<Response> {
+  try {
+    const body = await request.json().catch(() => null) as { feedback?: string } | null;
+    const feedback = typeof body?.feedback === 'string' ? body.feedback.trim() : undefined;
+
+    const song = await getSong(env, songId);
+    if (!song) return jsonResponse({ error: { code: 'NOT_FOUND', message: 'Song not found' } }, 404);
+
+    let targetLine: string | null = null;
+    for (const section of song.sections) {
+      const line = section.lines.find((l) => l.lineId === lineId);
+      if (line) { targetLine = line.text.target; break; }
+    }
+    if (!targetLine) return jsonResponse({ error: { code: 'NOT_FOUND', message: 'Line not found' } }, 404);
+
+    const result = await retranslateLine(env, targetLine, song.title, song.source?.artist ?? '', feedback);
+
+    const updated = await updateLine(env, songId, lineId, {
+      text: { roman: result.roman, wordByWord: result.wordByWord, direct: result.direct, natural: result.natural },
+      tokens: result.tokens,
+    });
+    if (!updated) return jsonResponse({ error: { code: 'NOT_FOUND', message: 'Line not found after retranslate' } }, 404);
+
+    return jsonResponse(result, 200);
+  } catch (error) {
+    console.error('Error in handleRetranslateLine:', error);
+    return jsonResponse({ error: { code: 'RETRANSLATE_ERROR', message: String(error) } }, 502);
+  }
+}
+
+/**
+ * POST /api/songs/:songId/retranslate — Re-run AI on the whole song with optional feedback, saves as new version
+ */
+async function handleRetranslateSong(request: Request, env: Env, songId: string): Promise<Response> {
+  try {
+    const body = await request.json().catch(() => null) as { feedback?: string } | null;
+    const feedback = typeof body?.feedback === 'string' ? body.feedback.trim() : undefined;
+
+    const song = await getSong(env, songId);
+    if (!song) return jsonResponse({ error: { code: 'NOT_FOUND', message: 'Song not found' } }, 404);
+
+    // Reconstruct raw lyrics from the stored target lines
+    const rawLyrics = song.sections
+      .flatMap(s => s.lines.map(l => l.text.target))
+      .join('\n');
+
+    const meta = await getMeta(env, songId);
+
+    let result;
+    try {
+      result = await generateLyricLesson(
+        env,
+        rawLyrics,
+        song.title,
+        song.source?.artist,
+        undefined,
+        meta?.language?.target ?? 'hi',
+        meta?.language?.learner ?? 'en',
+        feedback
+      );
+    } catch (error) {
+      console.error('OpenAI retranslate song error:', error);
+      return jsonResponse({ error: { code: 'AI_GENERATION_ERROR', message: String(error) } }, 502);
+    }
+
+    const { lesson, usage: openaiUsage } = result;
+
+    // Save as a new versioned copy so the original is preserved
+    let newSongId = songId;
+    let v = 2;
+    while (await getSong(env, `${newSongId.replace(/-v\d+$/, '')}-v${v}`)) v++;
+    newSongId = `${newSongId.replace(/-v\d+$/, '')}-v${v}`;
+    lesson.lessonId = newSongId;
+
+    await putSong(env, newSongId, lesson);
+    const songMeta = await putMeta(env, {
+      songId: newSongId,
+      title: lesson.title,
+      artist: lesson.source.artist,
+      language: {
+        target: meta?.language?.target ?? 'hi',
+        learner: meta?.language?.learner ?? 'en',
       },
-      500
-    );
+      openaiUsage,
+    });
+
+    return jsonResponse({ songId: newSongId, songMeta }, 201);
+  } catch (error) {
+    console.error('Error in handleRetranslateSong:', error);
+    return jsonResponse({ error: { code: 'INTERNAL_ERROR', message: String(error) } }, 500);
   }
 }
 

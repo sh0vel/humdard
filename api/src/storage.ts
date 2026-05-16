@@ -2,7 +2,7 @@
  * R2 storage operations for song data and metadata management
  */
 
-import { Env, LyricLesson, SongMetadata } from './types';
+import { Env, LyricLesson, SongMetadata, JobStatus } from './types';
 
 /**
  * Get song key for R2 storage
@@ -111,6 +111,66 @@ export async function putMeta(
     console.error('Error writing metadata to R2:', error);
     throw error;
   }
+}
+
+/**
+ * Update a single line within a stored song. Returns the updated lesson, or null if not found.
+ */
+export async function updateLine(
+  env: Env,
+  songId: string,
+  lineId: string,
+  updates: { text?: Partial<{ roman: string; wordByWord: string; direct: string; natural: string }>; tokens?: import('./types').LyricToken[] }
+): Promise<import('./types').LyricLesson | null> {
+  const lesson = await getSong(env, songId);
+  if (!lesson) return null;
+
+  let found = false;
+  for (const section of lesson.sections) {
+    for (const line of section.lines) {
+      if (line.lineId === lineId) {
+        if (updates.text) Object.assign(line.text, updates.text);
+        if (updates.tokens) line.tokens = updates.tokens;
+        found = true;
+        break;
+      }
+    }
+    if (found) break;
+  }
+  if (!found) return null;
+
+  await putSong(env, songId, lesson);
+  return lesson;
+}
+
+/**
+ * Get job key for R2 storage
+ */
+function getJobKey(jobId: string): string {
+  return `jobs/${jobId}.json`;
+}
+
+/**
+ * Read a job status from R2
+ */
+export async function getJob(env: Env, jobId: string): Promise<JobStatus | null> {
+  try {
+    const object = await env.BUCKET.get(getJobKey(jobId));
+    if (!object) return null;
+    return JSON.parse(await object.text()) as JobStatus;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Write a job status to R2
+ */
+export async function putJob(env: Env, job: JobStatus): Promise<void> {
+  const json = JSON.stringify(job);
+  await env.BUCKET.put(getJobKey(job.jobId), json, {
+    httpMetadata: { contentType: 'application/json' },
+  });
 }
 
 /**

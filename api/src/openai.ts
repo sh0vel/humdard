@@ -5,7 +5,7 @@
 import { Env, LyricLesson, OpenAIRequest, OpenAIResponse } from './types';
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
-const DEFAULT_MODEL = 'gpt-5.2'; // GPT-5.5: strongest multilingual + translation quality
+const DEFAULT_MODEL = 'gpt-5.5';
 
 /**
  * JSON Schema for LyricLesson - used for OpenAI structured output
@@ -107,7 +107,7 @@ const LYRIC_LESSON_SCHEMA = {
 /**
  * Create system prompt for OpenAI
  */
-function createSystemPrompt(targetLang: string, learnerLang: string): string {
+function createSystemPrompt(_targetLang: string, _learnerLang: string): string {
   return `You are an expert language-learning content creator specializing in Hindi (Devanagari) → English.
 
 Your job: convert raw Hindi song lyrics into structured JSON for language learners. The goal is NOT just “correct translation”—it is to produce *consistent, learnable, high-quality* outputs that match the style below: clean romanization, teachable word-by-word gloss, a literal-but-pleasant “direct” English line, and a more expressive “natural” English line that can vary slightly on repeats.
@@ -383,7 +383,9 @@ STRUCTURE / FORMATTING
   - text: { target, roman, wordByWord, direct, natural }
   - tokens: [ ... ]
 
-IMPORTANT: The “target” field must match the input line exactly (including punctuation and nukta forms).
+IMPORTANT: The “target” field must always be in Devanagari.
+- If input line is already Devanagari: copy it exactly (preserve punctuation and nukta forms).
+- If input line is Roman: convert to Devanagari and use that as target. Do NOT copy the Roman string into target.
 
 ==============================
 FINAL CHECK BEFORE OUTPUT
@@ -412,10 +414,14 @@ function createUserPrompt(
   rawLyrics: string,
   titleHint?: string,
   artistHint?: string,
-  lessonId?: string
+  lessonId?: string,
+  feedback?: string
 ): string {
   let prompt = 'Apply the translation style guide to the following lyrics.\n\n';
   prompt += `Raw Lyrics:\n${rawLyrics}\n\n`;
+  if (feedback) {
+    prompt += `TRANSLATOR FEEDBACK (apply to this run):\n${feedback}\n\n`;
+  }
   
   if (titleHint) {
     prompt += `Title hint: ${titleHint}\n`;
@@ -426,7 +432,7 @@ function createUserPrompt(
   if (lessonId) {
     prompt += `Use lessonId: ${lessonId}\n`;
   }
-  
+
   prompt += '\nCRITICAL REQUIREMENTS:\n';
   prompt += '- Preserve 1:1 line mapping (one input line = one output line)\n';
   prompt += '- Use ONLY the lines provided—do not invent or add content\n';
@@ -482,7 +488,8 @@ export async function generateLyricLesson(
   artistHint?: string,
   lessonId?: string,
   targetLang: string = 'hi',
-  learnerLang: string = 'en'
+  learnerLang: string = 'en',
+  feedback?: string
 ): Promise<LyricLessonResult> {
   const model = env.OPENAI_MODEL || DEFAULT_MODEL;
   
@@ -503,7 +510,7 @@ export async function generateLyricLesson(
       },
       {
         role: 'user',
-        content: createUserPrompt(rawLyrics, titleHint, artistHint, lessonId),
+        content: createUserPrompt(rawLyrics, titleHint, artistHint, lessonId, feedback),
       },
     ],
     response_format: {
@@ -574,4 +581,106 @@ export async function generateLyricLesson(
     console.error('Error calling OpenAI API:', error);
     throw error;
   }
+}
+
+const LINE_RETRANSLATE_SCHEMA = {
+  type: 'object',
+  properties: {
+    roman:     { type: 'string' },
+    wordByWord:{ type: 'string' },
+    direct:    { type: 'string' },
+    natural:   { type: 'string' },
+    tokens: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id:      { type: 'string' },
+          surface: { type: 'string' },
+          roman:   { type: 'string' },
+          gloss:   { type: 'string' },
+        },
+        required: ['id', 'surface', 'roman', 'gloss'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['roman', 'wordByWord', 'direct', 'natural', 'tokens'],
+  additionalProperties: false,
+};
+
+export interface RetranslateLine {
+  roman: string;
+  wordByWord: string;
+  direct: string;
+  natural: string;
+  tokens: import('./types').LyricToken[];
+}
+
+export async function retranslateLine(
+  env: Env,
+  targetLine: string,
+  songTitle: string,
+  artist: string,
+  feedback?: string
+): Promise<RetranslateLine> {
+  const model = env.OPENAI_MODEL || DEFAULT_MODEL;
+
+  const systemPrompt = `You are an expert Hindi/Urdu → English translator for a language-learning app.
+
+You will receive a single lyric line in Hindi, Urdu, or Hindustani, and produce 5 fields for it:
+- roman: beginner-friendly Latin transliteration, no diacritics, consistent
+- wordByWord: token-order English gloss, intentionally ungrammatical, compact
+- direct: literal + grammatical English, preserves imagery, plain and neutral — NOT poetic. No non-English characters.
+- natural: emotionally faithful fluent English, slightly different from direct — NOT poetic excess. No non-English characters.
+- tokens: per-word breakdown array
+
+Rules:
+- direct and natural must be fully English — zero Devanagari/Perso-Arabic characters.
+- direct preserves wording and imagery; natural conveys the emotional experience.
+- They must be meaningfully different from each other.
+- Singular "I" is preferred in romantic/devotional contexts even if verb is plural.
+- Emotionally important Urdu words (dard, dil, tanha, intezaar, etc.) must be translated — never left in Roman.
+- Return ONLY the JSON object matching the schema.`;
+
+  const userPrompt = `Song: "${songTitle}" by ${artist}
+
+Line to translate:
+${targetLine}${feedback ? `\n\nTranslator feedback / correction:\n${feedback}` : ''}`;
+
+  const response = await fetch(OPENAI_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'line_translation',
+          strict: true,
+          schema: LINE_RETRANSLATE_SCHEMA,
+        },
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`OpenAI retranslate error: ${response.status} ${err}`);
+  }
+
+  const data = await response.json() as { choices?: { message: { content?: string; refusal?: string } }[] };
+  const choice = data.choices?.[0];
+  if (!choice) throw new Error('No choices from OpenAI');
+  if (choice.message.refusal) throw new Error(`OpenAI refused: ${choice.message.refusal}`);
+  if (!choice.message.content) throw new Error('No content from OpenAI');
+
+  return JSON.parse(choice.message.content) as RetranslateLine;
 }

@@ -122,6 +122,7 @@ export interface LyricSection {
 export interface LyricLine {
   lineId: string;
   order: number;
+  isInstrumental?: boolean;
   text: {
     target: string;
     roman: string;

@@ -174,6 +174,65 @@ export async function putJob(env: Env, job: JobStatus): Promise<void> {
 }
 
 /**
+ * Insert a new instrumental line immediately before the specified lineId.
+ * Returns the updated lesson, or null if the song/line was not found.
+ */
+export async function insertInstrumentalBefore(
+  env: Env,
+  songId: string,
+  beforeLineId: string
+): Promise<import('./types').LyricLesson | null> {
+  const lesson = await getSong(env, songId);
+  if (!lesson) return null;
+
+  let inserted = false;
+  for (const section of lesson.sections) {
+    const idx = section.lines.findIndex((l) => l.lineId === beforeLineId);
+    if (idx === -1) continue;
+
+    const newLine: import('./types').LyricLine = {
+      lineId: `instrumental-${crypto.randomUUID().slice(0, 8)}`,
+      order: 0,
+      isInstrumental: true,
+      text: { target: '', roman: '', wordByWord: '', direct: '', natural: '' },
+      tokens: [],
+    };
+    section.lines.splice(idx, 0, newLine);
+
+    // Re-number orders within this section
+    section.lines.forEach((l, i) => { l.order = i + 1; });
+    inserted = true;
+    break;
+  }
+
+  if (!inserted) return null;
+  await putSong(env, songId, lesson);
+  return lesson;
+}
+
+/**
+ * Delete a single line from a stored song. Returns the updated lesson, or null if not found.
+ */
+export async function deleteLineFromSong(
+  env: Env,
+  songId: string,
+  lineId: string
+): Promise<import('./types').LyricLesson | null> {
+  const lesson = await getSong(env, songId);
+  if (!lesson) return null;
+
+  for (const section of lesson.sections) {
+    const idx = section.lines.findIndex((l) => l.lineId === lineId);
+    if (idx === -1) continue;
+    section.lines.splice(idx, 1);
+    section.lines.forEach((l, i) => { l.order = i + 1; });
+    await putSong(env, songId, lesson);
+    return lesson;
+  }
+  return null;
+}
+
+/**
  * Delete a song and its metadata from R2
  */
 export async function deleteSong(

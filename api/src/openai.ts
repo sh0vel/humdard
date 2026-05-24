@@ -1,16 +1,21 @@
 /**
- * OpenAI API integration for structured lyric processing
+ * OpenAI API integration for structured lyric processing.
+ *
+ * Generation uses two phases:
+ *   Phase 1 (base call)  — structure, native script, roman, wordByWord, tokens
+ *   Phase 2 (parallel)   — direct | natural | poetic translations run concurrently
  */
 
-import { Env, LyricLesson, OpenAIRequest, OpenAIResponse } from './types';
+import { Env, LyricLesson, LyricLine, OpenAIRequest, OpenAIResponse } from './types';
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 const DEFAULT_MODEL = 'gpt-5.5';
 
-/**
- * JSON Schema for LyricLesson - used for OpenAI structured output
- */
-const LYRIC_LESSON_SCHEMA = {
+// ============================================================================
+// Schemas
+// ============================================================================
+
+const BASE_LESSON_SCHEMA = {
   type: 'object',
   properties: {
     schemaVersion: { type: 'string' },
@@ -21,18 +26,13 @@ const LYRIC_LESSON_SCHEMA = {
       properties: {
         target: {
           type: 'object',
-          properties: {
-            iso: { type: 'string' },
-            script: { type: 'string' },
-          },
+          properties: { iso: { type: 'string' }, script: { type: 'string' } },
           required: ['iso', 'script'],
           additionalProperties: false,
         },
         learner: {
           type: 'object',
-          properties: {
-            iso: { type: 'string' },
-          },
+          properties: { iso: { type: 'string' } },
           required: ['iso'],
           additionalProperties: false,
         },
@@ -42,9 +42,7 @@ const LYRIC_LESSON_SCHEMA = {
     },
     source: {
       type: 'object',
-      properties: {
-        artist: { type: 'string' },
-      },
+      properties: { artist: { type: 'string' } },
       required: ['artist'],
       additionalProperties: false,
     },
@@ -69,10 +67,8 @@ const LYRIC_LESSON_SCHEMA = {
                     target: { type: 'string' },
                     roman: { type: 'string' },
                     wordByWord: { type: 'string' },
-                    direct: { type: 'string' },
-                    natural: { type: 'string' },
                   },
-                  required: ['target', 'roman', 'wordByWord', 'direct', 'natural'],
+                  required: ['target', 'roman', 'wordByWord'],
                   additionalProperties: false,
                 },
                 tokens: {
@@ -104,349 +100,139 @@ const LYRIC_LESSON_SCHEMA = {
   additionalProperties: false,
 };
 
-/**
- * Create system prompt for OpenAI
- */
-function createSystemPrompt(_targetLang: string, _learnerLang: string): string {
-  return `You are an expert language-learning content creator specializing in Hindi (Devanagari) → English.
+const TRANSLATION_SCHEMA = {
+  type: 'object',
+  properties: {
+    lines: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          lineId: { type: 'string' },
+          translation: { type: 'string' },
+        },
+        required: ['lineId', 'translation'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['lines'],
+  additionalProperties: false,
+};
 
-Your job: convert raw Hindi song lyrics into structured JSON for language learners. The goal is NOT just “correct translation”—it is to produce *consistent, learnable, high-quality* outputs that match the style below: clean romanization, teachable word-by-word gloss, a literal-but-pleasant “direct” English line, and a more expressive “natural” English line that can vary slightly on repeats.
+// ============================================================================
+// System prompts
+// ============================================================================
 
-==============================
-TOP PRIORITY OUTPUT GOAL
-==============================
+const BASE_SYSTEM_PROMPT = `You are an expert language-learning content creator for South Asian songs.
 
-For EVERY lyric line, produce these 5 fields with this exact intent:
+AUTO-DETECT the primary language from the lyrics and output in the correct NATIVE SCRIPT:
+- Hindi (Bollywood, Hindustani, Hindi-leaning vocabulary) → Devanagari, iso: "hi", script: "Devanagari"
+- Urdu (Pakistani music, ghazal tradition, heavy Persian/Arabic loanwords) → Arabic/Nastaliq, iso: "ur", script: "Arabic"
+- Bangla/Bengali → Bengali script, iso: "bn", script: "Bengali"
+- Ambiguous Hindustani → default to Devanagari (Hindi)
 
-1) roman:
-   - beginner-friendly, typeable, consistent (no diacritics)
+For EVERY lyric line produce:
 
-2) wordByWord:
-   - token-order gloss aligned to Hindi order
-   - intentionally ungrammatical
-   - teaching-focused and compact
+1. target — the line in the CORRECT NATIVE SCRIPT
+   - If input is Roman: convert to the detected native script
+   - If input is already native script: copy exactly (preserve nukta, punctuation)
+   - NEVER copy Roman text into the target field
 
-3) direct:
-   - literal + grammatical English
-   - “textbook literal”, plain, neutral
-   - short, clear, not poetic
+2. roman — consistent beginner-friendly Latin transliteration, NO diacritics (no ā ī ū ṇ etc.)
 
-4) natural:
-   - emotionally faithful, fluent English
-   - allowed to be slightly poetic
-   - may paraphrase lightly to sound like real English
-   - IMPORTANT: on repeated lines, natural MAY vary to show expressive alternatives (same meaning)
+3. wordByWord — token-order English gloss
+   - lowercase, space-separated, intentionally ungrammatical
+   - aligned to the native word order, not English order
+   - compact and literal — do NOT add interpretation or emotion
+   - include particles (hi, se, ko, ab, nahin, bhi, jo) as separate glosses
 
-5) tokens:
-   - per-word breakdown for learning, aligned to the line
+4. tokens — per-word breakdown for flashcard learning
+   - id: "t001", "t002", ... (restart per line)
+   - surface: exact substring from the target line
+   - roman: romanization of that token (no diacritics)
+   - gloss: short English meaning (1–4 words)
 
-==============================
-HARD CONSTRAINTS
-==============================
+STRUCTURE:
+- schemaVersion: "1.0.0"
+- Group all lines into one section: sectionId="main", label="Main", order=1
+- lineId format: "l001", "l002", ...
 
-GENERAL
-- Output MUST validate against the provided JSON schema.
-- Exactly ONE output line object per non-empty input lyric line.
-- Do NOT merge lines. Do NOT split lines.
-- Do NOT invent lyrics or add missing lines.
-- Keep original line order.
+CRITICAL RULES:
+- Exactly one output line per input lyric line — do NOT merge or split
+- Remove section labels ([Verse 1], [Chorus], etc.) and credits — process only lyric lines
+- Keep original line order
+- Romanization must be consistent across the whole song
+- Return ONLY the JSON matching the schema`;
 
-REPEATS POLICY (THIS IS THE KEY)
-- If the same target line repeats:
-  - roman MUST be identical across all repeats.
-  - wordByWord MUST be identical across all repeats.
-  - direct MUST be identical across all repeats.
-  - natural is allowed (and encouraged) to vary across repeats IF:
-    - the meaning stays the same
-    - the variation is small and controlled (synonyms/rephrasing)
-    - no new facts, no new imagery, no new promises
+const TRANSLATION_HIERARCHY = `TRANSLATION HIERARCHY
+The translation fields have different purposes and authority levels:
+1. wordByWord — preserves token-order structure
+2. direct — preserves the actual semantic meaning of the lyric; this is the primary truth-preserving English translation
+3. natural — improves fluency and emotional readability; must remain semantically equivalent to direct
+4. poetic — adds literary style and musicality; may elevate phrasing artistically; MUST remain recognizably connected to the semantic meaning of direct; MUST NOT invent new events, imagery, promises, or narrative implications
 
-This “stable direct + varied natural” is required to match the desired output style.
+If uncertain: preserve ambiguity, stay semantically conservative, avoid interpretation inflation.`;
 
-==============================
-ROMANIZATION (STRICT)
-==============================
+const FRAGMENT_NOTE = `IMPORTANT:
+Many lyric lines are incomplete poetic fragments that continue into neighboring lines.
+Use adjacent lines for semantic interpretation.
+Do NOT force every individual line into a fully standalone English thought if the original line is fragmentary.
+Preserve fragmentary structure when appropriate.`;
 
-- Use simple beginner-friendly Latin transliteration WITHOUT diacritics.
-- No ā ī ū ṇ ṅ ̃ ś ṣ ṛ etc.
-- Be consistent across the entire song.
+function makeDirectPrompt(): string {
+  return `You are a precise linguistic translator for South Asian songs.
 
-Preferred spellings when applicable:
-- kyun, zindagi, nahin, yahaan, kahin
-- toh (when "तो" means “so/then”)
-- main (for "मैं")
-- tu / tum / aap as appropriate
-- khuda, jannat, dhadkan, muskurahat, taaqat, hifaazat (choose one spelling and stick to it)
-==============================
-INPUT SCRIPT FLEXIBILITY
-==============================
+${TRANSLATION_HIERARCHY}
 
-The input lyrics may be in:
-- Devanagari script (Hindi/Urdu)
-- Roman script (transliterated)
-- A mix of both
+For each line (lineId | native script | romanization), produce a DIRECT English translation:
+- Grammatically correct, literal, plain English
+- Textbook-style — neutral and clear, no added imagery or emotion
+- Fragments are fine if the original is fragmentary
+- For repeated lines: direct MUST be identical across all repeats
+- Never leave South Asian words untranslated
 
-REGARDLESS of input format:
-- Always analyze and understand the Hindi/Urdu meaning
-- Always produce Devanagari output in the "text" field (convert Roman to Devanagari if needed)
-- Always produce consistent Roman transliteration in the "roman" field
-- Maintain all other output requirements (wordByWord, direct, natural, tokens)
+${FRAGMENT_NOTE}
 
-If input is already in Roman script:
-- Infer the correct Devanagari spelling
-- Use context and common Hindi/Urdu words to disambiguate
-- Apply standard Devanagari orthography
-
-==============================
-INPUT CLEANING
-==============================
-
-The raw input may contain:
-- Artist names, credits, or attribution lines (e.g., "Artist: Arijit Singh")
-- Section labels (e.g., "[Verse 1]", "[Chorus]", "Antara:", "Mukhda:")
-- Annotations or metadata (e.g., "(x2)", "Repeat")
-- Extra whitespace or formatting
-
-BEFORE processing:
-- Remove all artist credits, section labels, and metadata
-- Extract only the actual lyric lines
-- Ignore non-lyric content
-- Process each clean lyric line as specified
-
-Do NOT include metadata as lyric content or attempt to translate it.
-Romanization should be readable and typeable by beginners.
-
-==============================
-WORDBYWORD (STRICT)
-==============================
-
-Purpose: teach Hindi structure, not produce good English.
-
-Rules:
-- lowercase English words
-- space-separated
-- token-order aligned to Hindi order
-- intentionally ungrammatical is expected
-- keep it compact and literal
-- do NOT add interpretation/emotion or words not present
-- do NOT omit meaning-bearing tokens/particles
-- minimal helper words only when required to avoid nonsense (e.g., “of”, “from”, “to”, “not”, “even-if”)
-
-Examples of acceptable style:
-- "moment two moments of only why is life"
-- "this love for are centuries enough not"
-- "now far you-from go not"
-
-SPECIAL GUIDANCE FOR COMMON PARTICLES (for better teaching)
-- जो (jo): gloss based on function in the line:
-  - if it means “because/since/that” in a lyrical construction, gloss as "because" (preferred) or "since"
-  - avoid glossing as "who" unless it’s clearly a relative pronoun in context
-- ही (hi): gloss as "only/just" depending on sense; keep consistent within a repeated line
-- से (se): gloss as "from/with/by" depending on meaning; choose the most literal sense
-- को (ko): gloss as "to/for" depending on function
-
-==============================
-DIRECT (STRICT — BUT MATCH THE EXEMPLAR STYLE)
-==============================
-
-direct = literal, grammatical, plain English that still sounds like something a human would write in a literal translation.
-
-It should feel like:
-- “Why is life only for a moment or two?”
-- “Centuries are not enough for this love.”
-- “So I ask God.”
-- “For a new extension of time.”
-- “Now I don’t want to go far from you.”
-- “Because you are my companion in pain.”
-
-Rules:
-- MUST be grammatical English.
-- MUST use normal English word order (no inversions like “in these is my protection always”).
-- SHOULD be short and neutral (textbook literal).
-- Avoid embellishment, extra emotion, or extra meaning.
-- Do NOT introduce new facts.
-- Do NOT leave Hindi/Urdu words untranslated in English output.
-
-Allowed in direct:
-- minor grammatical smoothing (auxiliaries, articles, prepositions) as needed
-- “because” when the Hindi structure functions causally (e.g., “jo tu…” lines in the exemplar style)
-- fragments if the Hindi line is fragmentary (common in lyrics), e.g.:
-  - “For a new extension of time.”
-  - “Only here.”
-  - “Not far from you.”
-
-BANNED in direct (unless explicitly present in Hindi):
-- “feel”, “seems”, “tied to”, “bound to”, “promise” (unless वादा is present), “always” (unless सदा/हमेशा is present)
-- interpretive adjectives like “fleeting”, “sweet”, “heavenlike”, “rare”, “fresh lease” (keep those for natural if you must)
-- adding imagery or metaphors not in Hindi
-
-Direct grammatical repair examples (do this):
-- "does cruelty" → "is cruel"
-- "only of two moments" → "only for a moment or two"
-- awkward inversion → normal order:
-  - BAD: “In these alone is my protection.”
-  - GOOD: “My protection is in these alone.”
-
-IMPORTANT: Humdard handling (no untranslated “humdard”)
-- Never output "humdard" in direct or natural.
-- Translate it into plain English meaning.
-- Preferred direct default for हमदर्द:
-  - "companion in pain"
-  - OR "one who shares my pain"
-Pick ONE default for direct and reuse it identically across repeats.
-
-==============================
-NATURAL (EXPRESSIVE, CONTROLLED, LEARNER-SAFE)
-==============================
-
-natural = smooth, emotionally faithful English.
-This is where the “you-style” output lives.
-
-Rules:
-- ONE sentence per line.
-- Keep meaning faithful; do not add new plot/facts.
-- Allowed:
-  - slightly poetic wording
-  - light paraphrase for fluency
-  - a small emotional lift (e.g., “short and fleeting”, “distance between us”)
-- Not allowed:
-  - introducing new events, new promises, new causes
-  - heavy new imagery not implied by the line
-  - changing who does what
-
-REPEATS BEHAVIOR (IMPORTANT)
-- For repeated lines, natural MAY vary (and is encouraged).
-- Variation must be “same meaning, different phrasing.”
-- Use 2–4 rotating paraphrase styles if possible.
-
-Example for a repeated “हमदर्द” line (same meaning, varied naturals):
-- “Because you’re the one who shares my pain.”
-- “Because you understand my pain.”
-- “Because you share my hurt.”
-- “Because you stand with me in my pain.”
-
-Example for a repeated “सुहाना हर दर्द है” line:
-- “Every pain feels easier to bear.”
-- “Pain feels softer with you.”
-- “It doesn’t hurt the same anymore.”
-
-SPECIAL CASE: wordless vocalizations
-- If the line is only vocal sounds (e.g., "उ उ उ ..."):
-  - wordByWord: "(wordless vocalization)"
-  - direct: "(wordless vocalization)"
-  - natural: you may choose ONE of:
-    - "(wordless vocalization)"  (default)
-    - "an emotional pause"       (allowed alternative)
-  Keep it short.
-
-==============================
-TOKENS (LEARNING BREAKDOWN)
-==============================
-
-For each line, include tokens[].
-
-Rules:
-- tokens must cover each meaningful word/particle in the Hindi line.
-- Keep token order identical to the Hindi.
-- Include particles (ही, से, को, अब, नहीं, etc.) as separate tokens if present.
-- Each token object must include:
-  - id: "t001", "t002", ... (restart per line)
-  - surface: exact substring as it appears in the target line
-  - roman: romanization of that token (no diacritics)
-  - gloss: short English meaning/function (1–4 words)
-
-Token gloss style:
-- concise, dictionary-like
-- for particles: grammatical function
-- examples:
-  - "hi" → "only/just"
-  - "se" → "from"
-  - "ko" → "to/for"
-  - "nahin" → "not"
-  - "ab" → "now"
-  - "bhi" → "even/also"
-  - "jo" → "because/that"
-
-==============================
-STRUCTURE / FORMATTING
-==============================
-
-- schemaVersion must be "1.0.0"
-- Group all lines into a single section:
-  - sectionId="main"
-  - label="Main"
-  - order=1
-- Use lineId format: "l001", "l002", ...
-- Each line object includes:
-  - lineId
-  - order
-  - text: { target, roman, wordByWord, direct, natural }
-  - tokens: [ ... ]
-
-IMPORTANT: The “target” field must always be in Devanagari.
-- If input line is already Devanagari: copy it exactly (preserve punctuation and nukta forms).
-- If input line is Roman: convert to Devanagari and use that as target. Do NOT copy the Roman string into target.
-
-==============================
-FINAL CHECK BEFORE OUTPUT
-==============================
-
-Before returning JSON, mentally verify:
-- One output line per input line
-- roman is consistent and diacritic-free
-- wordByWord is lowercase, token-order, no added interpretation
-- direct is literal + grammatical + neutral + not poetic + no inversions
-- natural is fluent + emotionally faithful
-- repeated lines:
-  - roman/wordByWord/direct identical
-  - natural allowed to vary slightly (same meaning)
-- tokens are complete and ordered, with short glosses
-
-Return ONLY the JSON that matches the schema. No extra commentary.
-
-`;
+Return ONLY the JSON matching the schema.`;
 }
 
-/**
- * Create user prompt with lyrics
- */
-function createUserPrompt(
-  rawLyrics: string,
-  titleHint?: string,
-  artistHint?: string,
-  lessonId?: string,
-  feedback?: string
-): string {
-  let prompt = 'Apply the translation style guide to the following lyrics.\n\n';
-  prompt += `Raw Lyrics:\n${rawLyrics}\n\n`;
-  if (feedback) {
-    prompt += `TRANSLATOR FEEDBACK (apply to this run):\n${feedback}\n\n`;
-  }
-  
-  if (titleHint) {
-    prompt += `Title hint: ${titleHint}\n`;
-  }
-  if (artistHint) {
-    prompt += `Artist hint: ${artistHint}\n`;
-  }
-  if (lessonId) {
-    prompt += `Use lessonId: ${lessonId}\n`;
-  }
+function makeNaturalPrompt(): string {
+  return `You are a fluent translator for South Asian song lyrics.
 
-  prompt += '\nCRITICAL REQUIREMENTS:\n';
-  prompt += '- Preserve 1:1 line mapping (one input line = one output line)\n';
-  prompt += '- Use ONLY the lines provided—do not invent or add content\n';
-  prompt += '- Reuse identical translations for repeated lines (chorus consistency)\n';
-  prompt += '- Apply the STYLE GUIDE strictly: wordByWord = decoding, direct = literal/plain, natural = expressive\n';
-  prompt += '- Output must validate against the JSON schema\n';
-  prompt += '- Infer title from lyrics if no hint provided (or use "Untitled")\n';
-  
-  return prompt;
+${TRANSLATION_HIERARCHY}
+
+For each line (lineId | native script | romanization), produce a NATURAL English translation:
+- Smooth, emotionally faithful, conversational — sounds like real English
+- NOT overly literal; light paraphrase is fine for fluency
+- Must remain semantically equivalent to direct — same meaning, better flow
+- For repeated lines: natural MAY vary slightly in phrasing but never in meaning
+
+GRAMMATICAL INDEPENDENCE — CRITICAL:
+Each line's translation must read as a grammatically self-contained English lyric line.
+You MAY use neighboring lines for emotional interpretation, ambiguity resolution, metaphor understanding, and pronoun reference.
+You MUST NOT import English connector words from adjacent lines.
+Do NOT begin a translation with subordinating conjunctions (that, because, so that, therefore, since) unless the CURRENT line itself contains that causal or subordinate structure in the original.
+
+BAD (grammatical leakage from adjacent line):
+  "That I am enough for you"
+  "That I fall apart from your words"
+  "Because you never understood"
+GOOD (standalone, emotionally faithful):
+  "I am enough for you"
+  "Your words could make me fall apart"
+  "You never understood"
+
+${FRAGMENT_NOTE}
+
+Return ONLY the JSON matching the schema.`;
 }
 
-/**
- * Usage data returned from OpenAI API call
- */
+
+// ============================================================================
+// Usage tracking
+// ============================================================================
+
 export interface OpenAIUsage {
   promptTokens: number;
   completionTokens: number;
@@ -454,142 +240,242 @@ export interface OpenAIUsage {
   estimatedCostUSD: number;
 }
 
-/**
- * Result of generateLyricLesson including lesson and usage metadata
- */
 export interface LyricLessonResult {
   lesson: LyricLesson;
   usage: OpenAIUsage;
 }
 
-/**
- * Calculate cost based on OpenAI pricing
- * GPT-5.2 pricing (as of Dec 2025):
- * - Input: $2.00 per 1M tokens
- * - Output: $10.00 per 1M tokens
- */
 function calculateCost(promptTokens: number, completionTokens: number): number {
-  const inputCostPer1M = 2.00;
-  const outputCostPer1M = 10.00;
-  
-  const inputCost = (promptTokens / 1_000_000) * inputCostPer1M;
-  const outputCost = (completionTokens / 1_000_000) * outputCostPer1M;
-  
-  return inputCost + outputCost;
+  const inputCostPer1M = 2.0;
+  const outputCostPer1M = 10.0;
+  return (promptTokens / 1_000_000) * inputCostPer1M + (completionTokens / 1_000_000) * outputCostPer1M;
 }
 
-/**
- * Call OpenAI API with structured output
- */
+// ============================================================================
+// Core OpenAI call
+// ============================================================================
+
+async function callOpenAI<T>(
+  env: Env,
+  messages: { role: 'system' | 'user'; content: string }[],
+  schema: object,
+  schemaName: string
+): Promise<{ result: T; promptTokens: number; completionTokens: number }> {
+  const model = env.OPENAI_MODEL || DEFAULT_MODEL;
+  const body: OpenAIRequest = {
+    model,
+    messages,
+    response_format: {
+      type: 'json_schema',
+      json_schema: { name: schemaName, strict: true, schema },
+    },
+  };
+
+  const response = await fetch(OPENAI_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`OpenAI error ${response.status}: ${err}`);
+  }
+
+  const data = (await response.json()) as OpenAIResponse;
+  const choice = data.choices?.[0];
+  if (!choice) throw new Error('No choices from OpenAI');
+  if (choice.message.refusal) throw new Error(`OpenAI refused: ${choice.message.refusal}`);
+  if (!choice.message.content) throw new Error('No content from OpenAI');
+
+  return {
+    result: JSON.parse(choice.message.content) as T,
+    promptTokens: data.usage?.prompt_tokens ?? 0,
+    completionTokens: data.usage?.completion_tokens ?? 0,
+  };
+}
+
+// ============================================================================
+// Phase 1: base structural call
+// ============================================================================
+
+type BaseLyricLesson = Omit<LyricLesson, 'sections'> & {
+  sections: Array<{
+    sectionId: string;
+    label: string;
+    order: number;
+    lines: Array<{
+      lineId: string;
+      order: number;
+      text: { target: string; roman: string; wordByWord: string };
+      tokens: LyricLine['tokens'];
+    }>;
+  }>;
+};
+
+async function generateBase(
+  env: Env,
+  rawLyrics: string,
+  titleHint?: string,
+  artistHint?: string,
+  lessonId?: string,
+  feedback?: string
+): Promise<{ base: BaseLyricLesson; promptTokens: number; completionTokens: number }> {
+  let userPrompt = 'Parse and structure the following song lyrics.\n\n';
+  userPrompt += `Raw Lyrics:\n${rawLyrics}\n\n`;
+  if (feedback) userPrompt += `Translator feedback:\n${feedback}\n\n`;
+  if (titleHint) userPrompt += `Title hint: ${titleHint}\n`;
+  if (artistHint) userPrompt += `Artist hint: ${artistHint}\n`;
+  if (lessonId) userPrompt += `Use lessonId: ${lessonId}\n`;
+  userPrompt += '\nDetect the language, produce target (native script), roman, wordByWord, and tokens for each line.';
+
+  const { result, promptTokens, completionTokens } = await callOpenAI<BaseLyricLesson>(
+    env,
+    [
+      { role: 'system', content: BASE_SYSTEM_PROMPT },
+      { role: 'user', content: userPrompt },
+    ],
+    BASE_LESSON_SCHEMA,
+    'lyric_lesson_base'
+  );
+
+  console.log(`[base] ${promptTokens}+${completionTokens} tokens`);
+  return { base: result, promptTokens, completionTokens };
+}
+
+// ============================================================================
+// Phase 2: translation calls
+// ============================================================================
+
+type TranslationType = 'direct' | 'natural';
+
+interface FlatLine {
+  lineId: string;
+  target: string;
+  roman: string;
+}
+
+async function generateTranslations(
+  env: Env,
+  lines: FlatLine[],
+  type: TranslationType,
+  titleHint?: string,
+  artistHint?: string
+): Promise<{ map: Map<string, string>; promptTokens: number; completionTokens: number }> {
+  const systemPrompt =
+    type === 'direct' ? makeDirectPrompt() : makeNaturalPrompt();
+
+  const lineTable = lines
+    .map(l => `${l.lineId} | ${l.target} | ${l.roman}`)
+    .join('\n');
+
+  let userPrompt = '';
+  if (titleHint || artistHint) {
+    userPrompt += `Song: "${titleHint ?? ''}"${artistHint ? ` by ${artistHint}` : ''}\n\n`;
+  }
+  userPrompt += `Lines (lineId | native script | romanization):\n${lineTable}\n\n`;
+  userPrompt += `Produce the ${type} translation for each lineId.`;
+
+  const { result, promptTokens, completionTokens } = await callOpenAI<{ lines: { lineId: string; translation: string }[] }>(
+    env,
+    [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    TRANSLATION_SCHEMA,
+    `translation_${type}`
+  );
+
+  console.log(`[${type}] ${promptTokens}+${completionTokens} tokens`);
+
+  const map = new Map<string, string>();
+  for (const l of result.lines) map.set(l.lineId, l.translation);
+  return { map, promptTokens, completionTokens };
+}
+
+// ============================================================================
+// Orchestrator
+// ============================================================================
+
 export async function generateLyricLesson(
   env: Env,
   rawLyrics: string,
   titleHint?: string,
   artistHint?: string,
   lessonId?: string,
-  targetLang: string = 'hi',
-  learnerLang: string = 'en',
+  _targetLang: string = 'hi',
+  _learnerLang: string = 'en',
   feedback?: string
 ): Promise<LyricLessonResult> {
-  const model = env.OPENAI_MODEL || DEFAULT_MODEL;
-  
-  // Debug: Check if API key is loaded
-  if (!env.OPENAI_API_KEY) {
-    throw new Error('OPENAI_API_KEY is not set in environment');
-  }
-  
-  console.log('API Key present:', env.OPENAI_API_KEY ? 'Yes (length: ' + env.OPENAI_API_KEY.length + ')' : 'No');
-  console.log('API Key starts with:', env.OPENAI_API_KEY?.substring(0, 10));
-  
-  const requestBody: OpenAIRequest = {
-    model,
-    messages: [
-      {
-        role: 'system',
-        content: createSystemPrompt(targetLang, learnerLang),
-      },
-      {
-        role: 'user',
-        content: createUserPrompt(rawLyrics, titleHint, artistHint, lessonId, feedback),
-      },
-    ],
-    response_format: {
-      type: 'json_schema',
-      json_schema: {
-        name: 'lyric_lesson',
-        strict: true,
-        schema: LYRIC_LESSON_SCHEMA,
-      },
-    },
-    // GPT-5.5 only supports default temperature (1); do not set it.
+  if (!env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not set');
+
+  // Phase 1: structure + linguistic analysis
+  const { base, promptTokens: p1, completionTokens: c1 } = await generateBase(
+    env, rawLyrics, titleHint, artistHint, lessonId, feedback
+  );
+
+  // Flatten lines for Phase 2
+  const flatLines: FlatLine[] = base.sections.flatMap(s =>
+    s.lines.map(l => ({ lineId: l.lineId, target: l.text.target, roman: l.text.roman }))
+  );
+
+  // Phase 2: parallel translation calls
+  const [
+    { map: directMap, promptTokens: p2d, completionTokens: c2d },
+    { map: naturalMap, promptTokens: p2n, completionTokens: c2n },
+  ] = await Promise.all([
+    generateTranslations(env, flatLines, 'direct', titleHint, artistHint),
+    generateTranslations(env, flatLines, 'natural', titleHint, artistHint),
+  ]);
+
+  // Merge translations into full lesson
+  const lesson: LyricLesson = {
+    ...base,
+    sections: base.sections.map(section => ({
+      ...section,
+      lines: section.lines.map(line => ({
+        ...line,
+        text: {
+          ...line.text,
+          direct: directMap.get(line.lineId) ?? '',
+          natural: naturalMap.get(line.lineId) ?? '',
+        },
+        tokens: line.tokens,
+      })),
+    })),
   };
 
-  try {
-    const response = await fetch(OPENAI_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify(requestBody),
-    });
+  const totalPrompt = p1 + p2d + p2n;
+  const totalCompletion = c1 + c2d + c2n;
+  const estimatedCostUSD = calculateCost(totalPrompt, totalCompletion);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('OpenAI API error:', response.status, errorText);
-      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
-    }
+  console.log(`[generateLyricLesson] total ~$${estimatedCostUSD.toFixed(4)}`);
 
-    const data = await response.json() as OpenAIResponse;
-    
-    if (!data.choices || data.choices.length === 0) {
-      throw new Error('No choices returned from OpenAI');
-    }
-
-    const choice = data.choices[0];
-    
-    if (choice.message.refusal) {
-      throw new Error(`OpenAI refused: ${choice.message.refusal}`);
-    }
-
-    const content = choice.message.content;
-    if (!content) {
-      throw new Error('No content in OpenAI response');
-    }
-
-    // Parse the structured JSON output
-    const lesson = JSON.parse(content) as LyricLesson;
-    
-    // Extract usage data
-    const promptTokens = data.usage?.prompt_tokens || 0;
-    const completionTokens = data.usage?.completion_tokens || 0;
-    const totalTokens = data.usage?.total_tokens || 0;
-    const estimatedCostUSD = calculateCost(promptTokens, completionTokens);
-    
-    console.log(`OpenAI usage: ${promptTokens} prompt + ${completionTokens} completion = ${totalTokens} total tokens (~$${estimatedCostUSD.toFixed(4)})`);
-    
-    return {
-      lesson,
-      usage: {
-        promptTokens,
-        completionTokens,
-        totalTokens,
-        estimatedCostUSD,
-      },
-    };
-  } catch (error) {
-    console.error('Error calling OpenAI API:', error);
-    throw error;
-  }
+  return {
+    lesson,
+    usage: {
+      promptTokens: totalPrompt,
+      completionTokens: totalCompletion,
+      totalTokens: totalPrompt + totalCompletion,
+      estimatedCostUSD,
+    },
+  };
 }
+
+// ============================================================================
+// Single-line retranslate (keeps one call for low latency on a single line)
+// ============================================================================
 
 const LINE_RETRANSLATE_SCHEMA = {
   type: 'object',
   properties: {
-    roman:     { type: 'string' },
-    wordByWord:{ type: 'string' },
-    direct:    { type: 'string' },
-    natural:   { type: 'string' },
+    roman:      { type: 'string' },
+    wordByWord: { type: 'string' },
+    direct:     { type: 'string' },
+    natural:    { type: 'string' },
     tokens: {
       type: 'array',
       items: {
@@ -619,68 +505,60 @@ export interface RetranslateLine {
 
 export async function retranslateLine(
   env: Env,
-  targetLine: string,
+  targetLineId: string,
+  allLines: Array<{ lineId: string; target: string; roman: string }>,
   songTitle: string,
   artist: string,
   feedback?: string
 ): Promise<RetranslateLine> {
-  const model = env.OPENAI_MODEL || DEFAULT_MODEL;
+  const systemPrompt = `You are an expert South Asian song translator for a language-learning app.
 
-  const systemPrompt = `You are an expert Hindi/Urdu → English translator for a language-learning app.
+You are given all lines of a song for context, with one line marked as TARGET.
+Produce translations ONLY for the TARGET line.
 
-You will receive a single lyric line in Hindi, Urdu, or Hindustani, and produce 5 fields for it:
-- roman: beginner-friendly Latin transliteration, no diacritics, consistent
-- wordByWord: token-order English gloss, intentionally ungrammatical, compact
-- direct: literal + grammatical English, preserves imagery, plain and neutral — NOT poetic. No non-English characters.
-- natural: emotionally faithful fluent English, slightly different from direct — NOT poetic excess. No non-English characters.
-- tokens: per-word breakdown array
+Output fields:
+- roman: beginner-friendly Latin transliteration, no diacritics
+- wordByWord: token-order English gloss, intentionally ungrammatical, lowercase, compact
+- direct: literal + grammatical English, plain and neutral
+- natural: emotionally faithful, fluent, conversational English
+
+${TRANSLATION_HIERARCHY}
+
+GRAMMATICAL INDEPENDENCE — CRITICAL:
+The natural translation must read as a grammatically self-contained English lyric line.
+Use neighboring lines for emotional interpretation, ambiguity resolution, and pronoun reference.
+Do NOT import English connector words (that, because, so that, therefore) from adjacent lines unless the TARGET line itself contains that structure.
+
+${FRAGMENT_NOTE}
 
 Rules:
-- direct and natural must be fully English — zero Devanagari/Perso-Arabic characters.
-- direct preserves wording and imagery; natural conveys the emotional experience.
-- They must be meaningfully different from each other.
-- Singular "I" is preferred in romantic/devotional contexts even if verb is plural.
-- Emotionally important Urdu words (dard, dil, tanha, intezaar, etc.) must be translated — never left in Roman.
-- Return ONLY the JSON object matching the schema.`;
+- direct and natural must be fully English — no Devanagari/Arabic/Bengali characters
+- direct and natural must be meaningfully different from each other
+- Never leave South Asian words untranslated
+- tokens: per-word breakdown of the TARGET line only (id: t001..., surface, roman, gloss)
+- Return ONLY the JSON matching the schema`;
+
+  const contextTable = allLines
+    .map(l => {
+      const marker = l.lineId === targetLineId ? ' ← TARGET' : '';
+      return `${l.lineId} | ${l.target} | ${l.roman}${marker}`;
+    })
+    .join('\n');
 
   const userPrompt = `Song: "${songTitle}" by ${artist}
 
-Line to translate:
-${targetLine}${feedback ? `\n\nTranslator feedback / correction:\n${feedback}` : ''}`;
+All lines (lineId | native script | romanization):
+${contextTable}${feedback ? `\n\nFeedback: ${feedback}` : ''}`;
 
-  const response = await fetch(OPENAI_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${env.OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      response_format: {
-        type: 'json_schema',
-        json_schema: {
-          name: 'line_translation',
-          strict: true,
-          schema: LINE_RETRANSLATE_SCHEMA,
-        },
-      },
-    }),
-  });
+  const { result } = await callOpenAI<RetranslateLine>(
+    env,
+    [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    LINE_RETRANSLATE_SCHEMA,
+    'line_retranslation'
+  );
 
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`OpenAI retranslate error: ${response.status} ${err}`);
-  }
-
-  const data = await response.json() as { choices?: { message: { content?: string; refusal?: string } }[] };
-  const choice = data.choices?.[0];
-  if (!choice) throw new Error('No choices from OpenAI');
-  if (choice.message.refusal) throw new Error(`OpenAI refused: ${choice.message.refusal}`);
-  if (!choice.message.content) throw new Error('No content from OpenAI');
-
-  return JSON.parse(choice.message.content) as RetranslateLine;
+  return result;
 }

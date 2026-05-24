@@ -293,6 +293,68 @@ export async function searchLyricsRaag(
 // Genius
 // ============================================================================
 
+/**
+ * Removes all <div> elements that have `attr` anywhere in their opening tag,
+ * using div-depth tracking so nested divs are fully consumed.
+ */
+function removeDivsByAttr(html: string, attr: string): string {
+  let result = '';
+  let pos = 0;
+  while (pos < html.length) {
+    const attrIdx = html.indexOf(attr, pos);
+    if (attrIdx === -1) { result += html.slice(pos); break; }
+    const divStart = html.lastIndexOf('<div', attrIdx);
+    if (divStart === -1 || divStart < pos) { result += html.slice(pos); break; }
+    result += html.slice(pos, divStart);
+    const tagEnd = html.indexOf('>', attrIdx);
+    if (tagEnd === -1) break;
+    let depth = 1;
+    let i = tagEnd + 1;
+    while (i < html.length && depth > 0) {
+      if (html[i] !== '<') { i++; continue; }
+      if (html.startsWith('</div', i)) { depth--; i += 5; }
+      else if (html.startsWith('<div', i) && /[\s>]/.test(html[i + 4] ?? '')) { depth++; i += 4; }
+      else i++;
+    }
+    pos = i;
+  }
+  return result;
+}
+
+/**
+ * Extracts full lyric text from a Genius HTML page by depth-tracking each
+ * data-lyrics-container div. Handles ad divs injected between containers
+ * (the old regex approach broke when those appeared).
+ */
+function extractGeniusLyrics(html: string): string {
+  const blocks: string[] = [];
+  let pos = 0;
+  while (true) {
+    const markerIdx = html.indexOf('data-lyrics-container="true"', pos);
+    if (markerIdx === -1) break;
+    const tagEnd = html.indexOf('>', markerIdx);
+    if (tagEnd === -1) break;
+    // Depth-track to capture full container content
+    let depth = 1;
+    let i = tagEnd + 1;
+    while (i < html.length && depth > 0) {
+      if (html[i] !== '<') { i++; continue; }
+      if (html.startsWith('</div', i)) { depth--; i += 5; }
+      else if (html.startsWith('<div', i) && /[\s>]/.test(html[i + 4] ?? '')) { depth++; i += 4; }
+      else i++;
+    }
+    const inner = html.slice(tagEnd + 1, i);
+    const cleaned = removeDivsByAttr(inner, 'data-exclude-from-selection="true"');
+    const text = htmlToText(cleaned)
+      .replace(/\[.*?\]/g, '')
+      .replace(/\n*You might also like[\s\S]*/i, '')
+      .trim();
+    if (text.length > 5) blocks.push(text);
+    pos = i;
+  }
+  return blocks.join('\n\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 interface GeniusSearchHit {
   result: { url: string; title: string; primary_artist?: { name?: string } };
 }
@@ -349,27 +411,13 @@ export async function searchGenius(
     }
 
     // Try each candidate in order until one yields actual lyrics.
-    let pageHtml = '';
-    // Try each candidate until we successfully extract lyrics.
     for (const hit of candidates) {
       const pageRes = await fetchWithTimeout(hit.result.url);
       if (!pageRes.ok) continue;
       const html = await pageRes.text();
       if (!html.includes('data-lyrics-container')) continue;
 
-      const stripped = html.replace(/<div[^>]*data-exclude-from-selection="true"[^>]*>[\s\S]*?<\/div>/g, '');
-      const containerRe = /data-lyrics-container="true"[^>]*>([\s\S]*?)(?=data-lyrics-container="true"|<\/div>\s*<div[^>]*id="div-gpt)/g;
-      let rawText = '';
-      let m: RegExpExecArray | null;
-      while ((m = containerRe.exec(stripped)) !== null) {
-        const block = htmlToText(m[1])
-          .replace(/\[.*?\]/g, '')
-          .replace(/^[^\n]*Lyrics\n+/i, '')
-          .replace(/\n*You might also like[\s\S]*/i, '')
-          .replace(/<[^>]*$/gm, '')
-          .trim();
-        if (block) rawText += (rawText ? '\n' : '') + block;
-      }
+      const rawText = extractGeniusLyrics(html);
 
       if (!rawText || rawText.length < 50) {
         console.warn(`[genius] no lyrics on ${hit.result.url}, trying next`);

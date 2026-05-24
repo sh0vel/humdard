@@ -217,7 +217,7 @@ export function validateLyricLesson(data: any): LyricLesson {
         );
       }
 
-      if (!line.text || !line.text.target || !line.text.roman || !line.text.wordByWord || !line.text.direct || !line.text.natural) {
+      if (!line.text || !line.text.target || !line.text.roman || !line.text.wordByWord) {
         throw new ValidationError(
           `Invalid line.text at section ${idx}, line ${lineIdx}`,
           'BAD_MODEL_OUTPUT',

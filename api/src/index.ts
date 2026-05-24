@@ -5,7 +5,7 @@
 
 import { Env, JsonifyQueuedResponse, JsonifyQueueMessage, SongsListResponse, LyricLesson, LyricLine, JobStatus } from './types';
 import { handleCorsPreFlight, addCorsHeaders } from './cors';
-import { getSong, putSong, listMetas, putMeta, getMeta, deleteSong, updateLine, getJob, putJob } from './storage';
+import { getSong, putSong, listMetas, putMeta, getMeta, deleteSong, updateLine, deleteLineFromSong, getJob, putJob, insertInstrumentalBefore } from './storage';
 import { generateLyricLesson, retranslateLine } from './openai';
 import { lookupLyrics } from './lookup';
 import { validateJsonifyRequest, validateLyricLesson, ValidationError, normalizeLyrics } from './validate';
@@ -40,6 +40,9 @@ export default {
       } else if (path.startsWith('/api/songs/') && request.method === 'GET') {
         const songId = path.split('/api/songs/')[1];
         response = await handleGetSong(request, env, songId);
+      } else if (/^\/api\/songs\/[^/]+\/lines\/[^/]+$/.test(path) && request.method === 'DELETE') {
+        const [, , , songId, , lineId] = path.split('/');
+        response = await handleDeleteLine(request, env, songId, lineId);
       } else if (path.startsWith('/api/songs/') && request.method === 'DELETE') {
         const songId = path.split('/api/songs/')[1];
         response = await handleDeleteSong(request, env, songId);
@@ -49,6 +52,9 @@ export default {
       } else if (/^\/api\/songs\/[^/]+\/lines\/[^/]+\/retranslate$/.test(path) && request.method === 'POST') {
         const [, , , songId, , lineId] = path.split('/');
         response = await handleRetranslateLine(request, env, songId, lineId);
+      } else if (/^\/api\/songs\/[^/]+\/lines\/[^/]+\/instrumental$/.test(path) && request.method === 'POST') {
+        const [, , , songId, , lineId] = path.split('/');
+        response = await handleInsertInstrumental(request, env, songId, lineId);
       } else if (/^\/api\/songs\/[^/]+\/retranslate$/.test(path) && request.method === 'POST') {
         const songId = path.split('/')[3];
         response = await handleRetranslateSong(request, env, songId);
@@ -407,14 +413,18 @@ async function handleRetranslateLine(request: Request, env: Env, songId: string,
     const song = await getSong(env, songId);
     if (!song) return jsonResponse({ error: { code: 'NOT_FOUND', message: 'Song not found' } }, 404);
 
-    let targetLine: string | null = null;
-    for (const section of song.sections) {
-      const line = section.lines.find((l) => l.lineId === lineId);
-      if (line) { targetLine = line.text.target; break; }
+    const allLines = song.sections.flatMap(s =>
+      s.lines
+        .filter(l => !l.isInstrumental)
+        .map(l => ({ lineId: l.lineId, target: l.text.target, roman: l.text.roman }))
+    );
+    const targetIdx = allLines.findIndex(l => l.lineId === lineId);
+    if (targetIdx === -1) {
+      return jsonResponse({ error: { code: 'NOT_FOUND', message: 'Line not found' } }, 404);
     }
-    if (!targetLine) return jsonResponse({ error: { code: 'NOT_FOUND', message: 'Line not found' } }, 404);
+    const contextLines = allLines.slice(Math.max(0, targetIdx - 3), targetIdx + 4);
 
-    const result = await retranslateLine(env, targetLine, song.title, song.source?.artist ?? '', feedback);
+    const result = await retranslateLine(env, lineId, contextLines, song.title, song.source?.artist ?? '', feedback);
 
     const updated = await updateLine(env, songId, lineId, {
       text: { roman: result.roman, wordByWord: result.wordByWord, direct: result.direct, natural: result.natural },
@@ -488,6 +498,32 @@ async function handleRetranslateSong(request: Request, env: Env, songId: string)
     return jsonResponse({ songId: newSongId, songMeta }, 201);
   } catch (error) {
     console.error('Error in handleRetranslateSong:', error);
+    return jsonResponse({ error: { code: 'INTERNAL_ERROR', message: String(error) } }, 500);
+  }
+}
+
+/**
+ * DELETE /api/songs/:songId/lines/:lineId — remove a line (typically an instrumental placeholder)
+ */
+async function handleDeleteLine(_request: Request, env: Env, songId: string, lineId: string): Promise<Response> {
+  try {
+    const updated = await deleteLineFromSong(env, songId, lineId);
+    if (!updated) return jsonResponse({ error: { code: 'NOT_FOUND', message: 'Song or line not found' } }, 404);
+    return jsonResponse({ ok: true }, 200);
+  } catch (error) {
+    return jsonResponse({ error: { code: 'INTERNAL_ERROR', message: String(error) } }, 500);
+  }
+}
+
+/**
+ * POST /api/songs/:songId/lines/:lineId/instrumental — insert an instrumental line before lineId
+ */
+async function handleInsertInstrumental(_request: Request, env: Env, songId: string, lineId: string): Promise<Response> {
+  try {
+    const updated = await insertInstrumentalBefore(env, songId, lineId);
+    if (!updated) return jsonResponse({ error: { code: 'NOT_FOUND', message: 'Song or line not found' } }, 404);
+    return jsonResponse({ ok: true }, 200);
+  } catch (error) {
     return jsonResponse({ error: { code: 'INTERNAL_ERROR', message: String(error) } }, 500);
   }
 }

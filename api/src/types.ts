@@ -12,6 +12,8 @@ export interface Env {
   OPENAI_API_KEY: string;
   OPENAI_MODEL?: string;
   ALLOWED_ORIGINS?: string;
+  SPOTIFY_CLIENT_ID: string;
+  SPOTIFY_CLIENT_SECRET: string;
 }
 
 // ============================================================================
@@ -22,6 +24,7 @@ export interface JsonifyRequest {
   rawLyrics: string;
   titleHint?: string;
   artistHint?: string;
+  imageUrl?: string;
   language?: {
     target: string;
     learner: string;
@@ -42,6 +45,8 @@ export interface JsonifyQueueMessage {
   rawLyrics: string;
   titleHint?: string;
   artistHint?: string;
+  imageUrl?: string;
+  feedback?: string;
   targetLang: string;
   learnerLang: string;
 }
@@ -75,6 +80,7 @@ export interface SongMetadata {
   songId: string;
   title: string;
   artist?: string;
+  imageUrl?: string;
   createdAt: string;
   updatedAt: string;
   language: {

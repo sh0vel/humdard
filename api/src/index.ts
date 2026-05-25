@@ -65,6 +65,12 @@ export default {
         response = await handleGetJob(request, env, jobId);
       } else if (path === '/api/lookup' && request.method === 'POST') {
         response = await handleLookup(request, env);
+      } else if (path === '/api/spotify/search' && request.method === 'GET') {
+        response = await handleSpotifySearch(request, env);
+      } else if (path === '/api/admin/backfill-images' && request.method === 'POST') {
+        response = await handleBackfillImages(env);
+      } else if (path === '/api/admin/reset-updated-at' && request.method === 'POST') {
+        response = await handleResetUpdatedAt(env);
       } else {
         response = jsonResponse(
           { error: { code: 'NOT_FOUND', message: 'Endpoint not found' } },
@@ -99,9 +105,9 @@ async function handleGetSongs(request: Request, env: Env): Promise<Response> {
     // Get all metadata from R2
     const metas = await listMetas(env);
     
-    // Sort by updatedAt descending
+    // Sort by createdAt descending (updatedAt changes on retranslation)
     const sortedMetas = metas.sort((a, b) => {
-      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 
     const responseBody: SongsListResponse = { songs: sortedMetas };
@@ -274,6 +280,7 @@ async function handleJsonify(request: Request, env: Env): Promise<Response> {
     }
 
     const { rawLyrics, titleHint, artistHint, language } = validatedRequest;
+    const imageUrl = typeof (body as any).imageUrl === 'string' ? (body as any).imageUrl : undefined;
     const normalizedLyrics = normalizeLyrics(rawLyrics);
 
     const jobId = crypto.randomUUID();
@@ -293,6 +300,7 @@ async function handleJsonify(request: Request, env: Env): Promise<Response> {
       rawLyrics: normalizedLyrics,
       titleHint,
       artistHint,
+      imageUrl,
       targetLang: language!.target,
       learnerLang: language!.learner,
     });
@@ -326,7 +334,7 @@ async function handleGetJob(_request: Request, env: Env, jobId: string): Promise
  * Queue consumer — runs the actual OpenAI generation for a queued job
  */
 async function processGenerationJob(env: Env, msg: JsonifyQueueMessage): Promise<void> {
-  const { jobId, rawLyrics, titleHint, artistHint, targetLang, learnerLang } = msg;
+  const { jobId, rawLyrics, titleHint, artistHint, imageUrl, feedback, targetLang, learnerLang } = msg;
 
   const updateJob = async (patch: Partial<JobStatus>) => {
     const existing = (await getJob(env, jobId)) ?? {
@@ -349,7 +357,8 @@ async function processGenerationJob(env: Env, msg: JsonifyQueueMessage): Promise
       artistHint,
       tempSongId,
       targetLang,
-      learnerLang
+      learnerLang,
+      feedback
     );
 
     const validatedLesson = validateLyricLesson(lesson);
@@ -367,6 +376,7 @@ async function processGenerationJob(env: Env, msg: JsonifyQueueMessage): Promise
       songId: finalSongId,
       title: validatedLesson.title,
       artist: validatedLesson.source.artist,
+      imageUrl,
       language: { target: targetLang, learner: learnerLang },
       openaiUsage,
     });
@@ -450,52 +460,27 @@ async function handleRetranslateSong(request: Request, env: Env, songId: string)
     const song = await getSong(env, songId);
     if (!song) return jsonResponse({ error: { code: 'NOT_FOUND', message: 'Song not found' } }, 404);
 
-    // Reconstruct raw lyrics from the stored target lines
+    const meta = await getMeta(env, songId);
     const rawLyrics = song.sections
-      .flatMap(s => s.lines.map(l => l.text.target))
+      .flatMap(s => s.lines.filter(l => !l.isInstrumental).map(l => l.text.target))
       .join('\n');
 
-    const meta = await getMeta(env, songId);
+    const jobId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    await putJob(env, { jobId, status: 'pending', createdAt: now, updatedAt: now });
 
-    let result;
-    try {
-      result = await generateLyricLesson(
-        env,
-        rawLyrics,
-        song.title,
-        song.source?.artist,
-        undefined,
-        meta?.language?.target ?? 'hi',
-        meta?.language?.learner ?? 'en',
-        feedback
-      );
-    } catch (error) {
-      console.error('OpenAI retranslate song error:', error);
-      return jsonResponse({ error: { code: 'AI_GENERATION_ERROR', message: String(error) } }, 502);
-    }
-
-    const { lesson, usage: openaiUsage } = result;
-
-    // Save as a new versioned copy so the original is preserved
-    let newSongId = songId;
-    let v = 2;
-    while (await getSong(env, `${newSongId.replace(/-v\d+$/, '')}-v${v}`)) v++;
-    newSongId = `${newSongId.replace(/-v\d+$/, '')}-v${v}`;
-    lesson.lessonId = newSongId;
-
-    await putSong(env, newSongId, lesson);
-    const songMeta = await putMeta(env, {
-      songId: newSongId,
-      title: lesson.title,
-      artist: lesson.source.artist,
-      language: {
-        target: meta?.language?.target ?? 'hi',
-        learner: meta?.language?.learner ?? 'en',
-      },
-      openaiUsage,
+    await env.GENERATION_QUEUE.send({
+      jobId,
+      rawLyrics,
+      titleHint: song.title,
+      artistHint: song.source?.artist,
+      imageUrl: meta?.imageUrl,
+      feedback,
+      targetLang: meta?.language?.target ?? 'hi',
+      learnerLang: meta?.language?.learner ?? 'en',
     });
 
-    return jsonResponse({ songId: newSongId, songMeta }, 201);
+    return jsonResponse({ jobId }, 202);
   } catch (error) {
     console.error('Error in handleRetranslateSong:', error);
     return jsonResponse({ error: { code: 'INTERNAL_ERROR', message: String(error) } }, 500);
@@ -558,6 +543,117 @@ async function handleLookup(request: Request, env: Env): Promise<Response> {
       502
     );
   }
+}
+
+// In-memory Spotify token cache (lives as long as the worker isolate)
+let spotifyTokenCache: { token: string; expiresAt: number } | null = null;
+
+async function getSpotifyAppToken(clientId: string, clientSecret: string): Promise<string> {
+  if (spotifyTokenCache && Date.now() < spotifyTokenCache.expiresAt) {
+    return spotifyTokenCache.token;
+  }
+  const res = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
+    },
+    body: 'grant_type=client_credentials',
+  });
+  const data = await res.json() as any;
+  if (!data.access_token) {
+    console.error('Spotify token exchange failed:', JSON.stringify(data));
+    throw new Error(`Spotify auth failed: ${data.error_description ?? data.error ?? 'unknown'}`);
+  }
+  spotifyTokenCache = { token: data.access_token, expiresAt: Date.now() + (data.expires_in - 60) * 1000 };
+  return spotifyTokenCache.token;
+}
+
+/**
+ * POST /api/admin/reset-updated-at — One-shot: set updatedAt = createdAt for all songs.
+ */
+async function handleResetUpdatedAt(env: Env): Promise<Response> {
+  const metas = await listMetas(env);
+  for (const meta of metas) {
+    const patched = { ...meta, updatedAt: meta.createdAt };
+    await env.BUCKET.put(`meta/${meta.songId}.json`, JSON.stringify(patched), {
+      httpMetadata: { contentType: 'application/json' },
+    });
+  }
+  return jsonResponse({ reset: metas.length });
+}
+
+/**
+ * POST /api/admin/backfill-images — One-shot: find and store Spotify album art for songs missing it.
+ */
+async function handleBackfillImages(env: Env): Promise<Response> {
+  const metas = await listMetas(env);
+  const missing = metas.filter((m) => !m.imageUrl);
+
+  const results: { songId: string; title: string; found: boolean }[] = [];
+
+  for (const meta of missing) {
+    const q = [meta.title, meta.artist].filter(Boolean).join(' ');
+    try {
+      const token = await getSpotifyAppToken(env.SPOTIFY_CLIENT_ID, env.SPOTIFY_CLIENT_SECRET);
+      const searchUrl = `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=1`;
+      const res = await fetch(searchUrl, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json() as any;
+      const item = data.tracks?.items?.[0];
+      if (item) {
+        const images: { url: string; height: number }[] = item.album?.images ?? [];
+        const smallest = images.sort((a, b) => a.height - b.height)[0];
+        if (smallest?.url) {
+          // Write directly to R2 preserving original createdAt AND updatedAt so sort order is unchanged
+          const patched = { ...meta, imageUrl: smallest.url };
+          await env.BUCKET.put(`meta/${meta.songId}.json`, JSON.stringify(patched), {
+            httpMetadata: { contentType: 'application/json' },
+          });
+          results.push({ songId: meta.songId, title: meta.title, found: true });
+          continue;
+        }
+      }
+    } catch (e) {
+      console.error(`backfill failed for ${meta.songId}:`, e);
+    }
+    results.push({ songId: meta.songId, title: meta.title, found: false });
+  }
+
+  return jsonResponse({
+    scanned: metas.length,
+    alreadyHadImage: metas.length - missing.length,
+    updated: results.filter((r) => r.found).length,
+    notFound: results.filter((r) => !r.found).length,
+    results,
+  });
+}
+
+/**
+ * GET /api/spotify/search?q=... — Proxy Spotify catalogue search (no user auth required)
+ */
+async function handleSpotifySearch(request: Request, env: Env): Promise<Response> {
+  const q = new URL(request.url).searchParams.get('q')?.trim();
+  if (!q) return jsonResponse({ error: { code: 'BAD_REQUEST', message: 'q is required' } }, 400);
+
+  const token = await getSpotifyAppToken(env.SPOTIFY_CLIENT_ID, env.SPOTIFY_CLIENT_SECRET);
+
+  const searchUrl = `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=10`;
+  const res = await fetch(searchUrl, { headers: { Authorization: `Bearer ${token}` } });
+  const data = await res.json() as any;
+  if (data.error) throw new Error(`Spotify search failed: ${data.error.message ?? data.error}`);
+
+  const tracks = (data.tracks?.items ?? []).map((item: any) => {
+    const images: { url: string; height: number }[] = item.album?.images ?? [];
+    const smallest = images.sort((a, b) => a.height - b.height)[0];
+    return {
+      id: item.id,
+      name: item.name,
+      artist: (item.artists ?? []).map((a: any) => a.name).filter(Boolean).join(', '),
+      imageUrl: smallest?.url ?? null,
+    };
+  });
+
+  return jsonResponse({ tracks });
 }
 
 /**

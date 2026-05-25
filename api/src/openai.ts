@@ -3,7 +3,7 @@
  *
  * Generation uses two phases:
  *   Phase 1 (base call)  — structure, native script, roman, wordByWord, tokens
- *   Phase 2 (parallel)   — direct | natural | poetic translations run concurrently
+ *   Phase 2 (parallel)   — direct | natural translations run concurrently
  */
 
 import { Env, LyricLesson, LyricLine, OpenAIRequest, OpenAIResponse } from './types';
@@ -170,7 +170,6 @@ The translation fields have different purposes and authority levels:
 1. wordByWord — preserves token-order structure
 2. direct — preserves the actual semantic meaning of the lyric; this is the primary truth-preserving English translation
 3. natural — improves fluency and emotional readability; must remain semantically equivalent to direct
-4. poetic — adds literary style and musicality; may elevate phrasing artistically; MUST remain recognizably connected to the semantic meaning of direct; MUST NOT invent new events, imagery, promises, or narrative implications
 
 If uncertain: preserve ambiguity, stay semantically conservative, avoid interpretation inflation.`;
 

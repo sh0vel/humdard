@@ -7,7 +7,7 @@
  */
 
 export interface RawLyricResult {
-  source: 'lyricsdex' | 'lyricsraag' | 'genius';
+  source: 'lyricsdex' | 'lyricsraag' | 'genius' | 'youtube';
   url: string;
   title: string;
   artist: string;
@@ -110,6 +110,12 @@ async function extractFirstText(html: string, selector: string): Promise<string>
 
 function buildQuery(title: string, artist?: string): string {
   return encodeURIComponent(artist ? `${title} ${artist}` : title);
+}
+
+function primaryArtist(artist?: string): string | undefined {
+  if (!artist) return undefined;
+  // Lyric sites list the vocalist, not all composers — use only the first artist
+  return artist.split(/,|feat\.|ft\./i)[0].trim() || undefined;
 }
 
 function titleMatches(query: string, found: string): boolean {
@@ -241,26 +247,47 @@ export async function searchLyricsRaag(
   artist: string | undefined
 ): Promise<RawLyricResult | null> {
   try {
-    const searchRes = await fetchWithTimeout(
-      `https://lyricsraag.com/?s=${buildQuery(title, artist)}`
-    );
-    if (!searchRes.ok) { console.warn(`[lyricsraag] search ${searchRes.status}`); return null; }
-    const searchHtml = await searchRes.text();
+    const artistList = artist
+      ? artist.split(/,/).map((a) => a.trim()).filter(Boolean)
+      : [undefined as string | undefined];
 
-    const linkMatch =
-      searchHtml.match(/<h2[^>]*class="[^"]*entry-title[^"]*"[\s\S]*?<a[^>]+href="([^"]+)"/) ||
-      searchHtml.match(/<a[^>]+href="(https:\/\/lyricsraag\.com\/[^"]*-translation[^"]*)"[^>]*>/i);
-    if (!linkMatch) { console.warn('[lyricsraag] no result link'); return null; }
+    // Prefer heading-based links (song pages); collect translation fallback separately
+    let pageUrl: string | null = null;
+    let translationFallback: string | null = null;
+    for (const a of artistList) {
+      const res = await fetchWithTimeout(`https://lyricsraag.com/?s=${buildQuery(title, a)}`);
+      if (!res.ok) continue;
+      const html = await res.text();
+      // LyricsRaag search results use vista-post-card__link (card layout, not entry-title)
+      const cardRe = /href="(https?:\/\/lyricsraag\.com\/(?!wp-content|language\/|feed)[^"]+)"[^>]*class="[^"]*vista-post-card__link/g;
+      const cardLinks: string[] = [];
+      for (const m of html.matchAll(cardRe)) cardLinks.push(m[1]);
+      const nonTranslation = cardLinks.find(u => !u.includes('-translation'));
+      if (nonTranslation) { pageUrl = nonTranslation; break; }
+      if (!translationFallback) {
+        translationFallback = cardLinks.find(u => u.includes('-translation')) ?? null;
+      }
+    }
+    pageUrl = pageUrl ?? translationFallback;
+    if (!pageUrl) { console.warn('[lyricsraag] no result link'); return null; }
 
-    const pageRes = await fetchWithTimeout(linkMatch[1]);
+    const pageRes = await fetchWithTimeout(pageUrl);
     if (!pageRes.ok) { console.warn(`[lyricsraag] page ${pageRes.status}`); return null; }
     const pageHtml = await pageRes.text();
 
+    // Try JSON-LD first; fall back to entry-content div
     const ld = extractJsonLdMusicRecording(pageHtml);
-    const rawText = ld?.recordingOf?.lyrics?.text ?? ld?.lyrics?.text ?? '';
-    if (!rawText || rawText.length < 50) { console.warn('[lyricsraag] no JSON-LD lyrics'); return null; }
+    let rawText = ld?.recordingOf?.lyrics?.text ?? ld?.lyrics?.text ?? '';
+    if (!rawText || rawText.length < 50) {
+      // Fall back: extract <p align="left"> paragraphs from entry-content (lyric paragraphs on LyricsRaag)
+      const lyricParas = (pageHtml.match(/<p[^>]*align="left"[^>]*>([\s\S]*?)<\/p>/gi) ?? [])
+        .map((p) => htmlToText(p).trim())
+        // prose descriptions have no newlines and are long; lyric stanzas always have \n
+        .filter((t) => t.length > 0 && t.length < 400 && (t.includes('\n') || t.length < 80));
+      rawText = lyricParas.join('\n\n');
+    }
+    if (!rawText || rawText.length < 50) { console.warn('[lyricsraag] no lyrics found'); return null; }
 
-    // JSON-LD text can contain inline HTML — pass through htmlToText to clean
     const cleanText = htmlToText(rawText).replace(/\r\n/g, '\n').trim();
     const detected = detectScript(cleanText);
 
@@ -271,13 +298,18 @@ export async function searchLyricsRaag(
     }
 
     const byArtist = ld?.byArtist;
-    const artistName = Array.isArray(byArtist)
+    let artistName = Array.isArray(byArtist)
       ? byArtist.map(x => x.name).filter(Boolean).join(', ')
-      : byArtist?.name ?? artist ?? '';
+      : byArtist?.name ?? '';
+    if (!artistName) {
+      const pageTitleMatch = pageHtml.match(/<title>([^<]+)<\/title>/i);
+      const artistFromTitle = pageTitleMatch?.[1]?.match(/[-–]\s*([^|<\n]+)/)?.[1]?.trim();
+      artistName = artistFromTitle || artist || '';
+    }
 
     return {
       source: 'lyricsraag',
-      url: linkMatch[1],
+      url: pageUrl,
       title: (songTitle ?? title).trim(),
       artist: artistName,
       rawText: cleanText,
@@ -386,6 +418,131 @@ export async function searchGenius(
     return null;
   } catch (err) {
     console.warn('[genius] error:', err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+// ── YouTube ───────────────────────────────────────────────────────────────────
+
+interface YTSearchItem {
+  id: { videoId: string };
+  snippet: { title: string; channelTitle: string };
+}
+
+interface YTVideoItem {
+  id: string;
+  snippet: { title: string; channelTitle: string; description: string };
+}
+
+async function aiExtractLyrics(desc: string, openaiKey: string, model: string): Promise<string> {
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: 'system',
+            content:
+              'Extract only the song lyrics from this YouTube video description. ' +
+              'Return just the lyrics preserving original line breaks and script (Devanagari, Arabic, Roman, etc.). ' +
+              'Exclude all credits, links, timestamps, hashtags, equipment lists, and metadata. ' +
+              'If no lyrics are present, return an empty string.',
+          },
+          { role: 'user', content: desc },
+        ],
+        max_completion_tokens: 1200,
+      }),
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      console.warn(`[youtube/ai] OpenAI error ${res.status}: ${errText.slice(0, 200)}`);
+      return '';
+    }
+    const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+    const extracted = data.choices?.[0]?.message?.content?.trim() ?? '';
+    console.log(`[youtube/ai] extracted ${extracted.length}c`);
+    return extracted;
+  } catch (err) {
+    console.warn('[youtube/ai] error:', err instanceof Error ? err.message : err);
+    return '';
+  }
+}
+
+export async function searchYouTube(
+  title: string,
+  artist: string | undefined,
+  youtubeKey: string,
+  openaiKey: string,
+  model: string
+): Promise<RawLyricResult | null> {
+  try {
+    const q = encodeURIComponent(`${title}${artist ? ' ' + artist : ''} lyrics`);
+
+    // Step 1: search for videos (100 quota units)
+    const searchRes = await fetchWithTimeout(
+      `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${q}&type=video&maxResults=6&key=${youtubeKey}`,
+      5000
+    );
+    if (!searchRes.ok) { console.warn(`[youtube] search ${searchRes.status}`); return null; }
+    const searchData = (await searchRes.json()) as { items?: YTSearchItem[] };
+    const items = searchData.items ?? [];
+    if (items.length === 0) { console.warn('[youtube] no search results'); return null; }
+
+    // Step 2: fetch all descriptions in one call (1 quota unit per video)
+    const ids = items.map(i => i.id.videoId).join(',');
+    const vidRes = await fetchWithTimeout(
+      `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${ids}&key=${youtubeKey}`,
+      5000
+    );
+    if (!vidRes.ok) { console.warn(`[youtube] videos ${vidRes.status}`); return null; }
+    const vidData = (await vidRes.json()) as { items?: YTVideoItem[] };
+    const allVideos = vidData.items ?? [];
+    const candidates = allVideos.filter(v =>
+      v.snippet.description.length >= 80 && titleMatches(title, v.snippet.title)
+    );
+    console.log(`[youtube] ${allVideos.length} videos fetched, ${candidates.length} passed title+desc filter`);
+    if (candidates.length === 0) { console.warn('[youtube] no matching videos'); return null; }
+
+    // Step 3: AI extracts lyrics from each description; pick best result
+    const extracted = await Promise.all(
+      candidates.slice(0, 4).map(async video => {
+        const lyrics = await aiExtractLyrics(video.snippet.description, openaiKey, model);
+        return { video, lyrics };
+      })
+    );
+
+    let bestNative: { video: YTVideoItem; text: string; script: RawLyricResult['detectedScript'] } | null = null;
+    let bestRoman:  { video: YTVideoItem; text: string } | null = null;
+
+    for (const { video, lyrics } of extracted) {
+      if (lyrics.length < 60) continue;
+      const detected = detectScript(lyrics);
+      if (detected && (!bestNative || lyrics.length > bestNative.text.length)) {
+        bestNative = { video, text: lyrics, script: detected };
+      } else if (!detected && (!bestRoman || lyrics.length > bestRoman.text.length)) {
+        bestRoman = { video, text: lyrics };
+      }
+    }
+
+    const winner = bestNative ?? bestRoman;
+    if (!winner) { console.warn('[youtube] no lyrics extracted'); return null; }
+
+    const detected = bestNative?.script;
+    console.log(`[youtube] ✓ ${winner.video.snippet.title} (${detected ?? 'roman'}, ${winner.text.length}c)`);
+
+    return {
+      source: 'youtube',
+      url: `https://www.youtube.com/watch?v=${winner.video.id}`,
+      title: winner.video.snippet.title,
+      artist: winner.video.snippet.channelTitle,
+      rawText: winner.text,
+      scriptHint: detected ? 'native' : 'roman',
+      detectedScript: detected,
+    };
+  } catch (err) {
+    console.warn('[youtube] error:', err instanceof Error ? err.message : err);
     return null;
   }
 }

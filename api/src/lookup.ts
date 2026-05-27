@@ -15,6 +15,7 @@ import {
   searchLyricsDex,
   searchLyricsRaag,
   searchGenius,
+  searchYouTube,
 } from './scrapers';
 import { Env } from './types';
 
@@ -58,7 +59,7 @@ function cleanTitle(title: string): string {
 }
 
 export async function lookupLyrics(
-  _env: Env,
+  env: Env,
   title: string,
   artist?: string
 ): Promise<LookupResult> {
@@ -70,7 +71,7 @@ export async function lookupLyrics(
     searchGenius(title, artist),
   ]);
 
-  const results: RawLyricResult[] = [];
+  let results: RawLyricResult[] = [];
   for (const s of settled) {
     if (s.status === 'fulfilled' && s.value) results.push(s.value);
   }
@@ -80,7 +81,29 @@ export async function lookupLyrics(
     results.map((r) => `${r.source}(${r.detectedScript ?? 'roman'}, ${r.rawText.length}c)`)
   );
 
-  if (results.length === 0) return { candidates: [] };
+  if (results.length === 0) {
+    if (env.YOUTUBE_API_KEY) {
+      console.log('[lookup] all scrapers missed — trying YouTube fallback');
+      const ytResult = await searchYouTube(
+        title, artist,
+        env.YOUTUBE_API_KEY,
+        env.OPENAI_API_KEY,
+        env.OPENAI_MODEL ?? 'gpt-4.1-mini'
+      );
+      if (ytResult) {
+        return {
+          candidates: [{
+            title:      ytResult.title  || title,
+            artist:     ytResult.artist || artist || '',
+            devanagari: stripResidualHtml(ytResult.rawText),
+            confidence: 'medium',
+            notes:      `via youtube (${ytResult.detectedScript ?? 'roman'})`,
+          }],
+        };
+      }
+    }
+    return { candidates: [] };
+  }
 
   // ⚡ Short-circuit: native script found — return immediately, no AI needed.
   // Require artist overlap when an artist is known, to avoid wrong-song matches.
@@ -107,8 +130,43 @@ export async function lookupLyrics(
     };
   }
 
-  // Roman-only fallback: pick the longest result and pass it straight to jsonify.
-  const best = results.reduce((a, b) => (b.rawText.length > a.rawText.length ? b : a));
+  // Roman-only fallback: apply same artist overlap filter, then pick longest.
+  const artistFiltered = artistWords.length > 0
+    ? results.filter((r) => {
+        if (!r.artist) return false;
+        const foundWords = normalize(r.artist).split(/\s+/).filter((w) => w.length >= 2);
+        return artistWords.some((w) => foundWords.some((fw) => fw.includes(w) || w.includes(fw)));
+      })
+    : results;
+
+  const pool = artistFiltered.length > 0 ? artistFiltered : [];
+  if (pool.length === 0) {
+    // Scrapers found something but none matched the artist — try YouTube before giving up
+    if (env.YOUTUBE_API_KEY) {
+      console.log('[lookup] no artist-matched scraper results — trying YouTube fallback');
+      const ytResult = await searchYouTube(
+        title, artist,
+        env.YOUTUBE_API_KEY,
+        env.OPENAI_API_KEY,
+        env.OPENAI_MODEL ?? 'gpt-4.1-mini'
+      );
+      if (ytResult) {
+        return {
+          candidates: [{
+            title:      ytResult.title  || title,
+            artist:     ytResult.artist || artist || '',
+            devanagari: stripResidualHtml(ytResult.rawText),
+            confidence: 'medium',
+            notes:      `via youtube (${ytResult.detectedScript ?? 'roman'})`,
+          }],
+        };
+      }
+    }
+    console.log(`[lookup] Roman fallback: no artist-matching results — returning empty`);
+    return { candidates: [] };
+  }
+
+  const best = pool.reduce((a, b) => (b.rawText.length > a.rawText.length ? b : a));
   if (best.rawText.length < 50) return { candidates: [] };
 
   console.log(`[lookup] Roman fallback: ${best.source} (${best.rawText.length}c)`);

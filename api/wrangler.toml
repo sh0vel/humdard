@@ -22,9 +22,12 @@ max_retries = 2
 [vars]
 ALLOWED_ORIGINS = "*"
 OPENAI_MODEL = "gpt-5.5"
+SPOTIFY_CLIENT_ID = "55c2275c63634074aa13b4d40e359e6f"
 
 # Secrets (set via wrangler secret put)
 # - OPENAI_API_KEY: Your OpenAI API key
+# - SPOTIFY_CLIENT_SECRET: Your Spotify app client secret
+# - YOUTUBE_API_KEY: YouTube Data API v3 key (enables description-based lyric lookup)
 
 # Development configuration
 [env.development]

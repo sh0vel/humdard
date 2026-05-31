@@ -150,6 +150,7 @@ export interface LyricToken {
   spectrum: string;        // nearby words with contrast, e.g. "pyaar=everyday, ishq=obsessive"
   verbForm: string;        // if verb: "jaana (to go) · subjunctive" — else ""
   grammaticalNote: string; // gender/case/number if useful — else ""
+  songContext: string;     // why songwriter chose THIS word over a synonym — else ""
 }
 
 // ============================================================================

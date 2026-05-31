@@ -85,8 +85,9 @@ const BASE_LESSON_SCHEMA = {
                       spectrum:         { type: 'string' },
                       verbForm:         { type: 'string' },
                       grammaticalNote:  { type: 'string' },
+                      songContext:      { type: 'string' },
                     },
-                    required: ['id', 'surface', 'roman', 'gloss', 'etymology', 'register', 'spectrum', 'verbForm', 'grammaticalNote'],
+                    required: ['id', 'surface', 'roman', 'gloss', 'etymology', 'register', 'spectrum', 'verbForm', 'grammaticalNote', 'songContext'],
                     additionalProperties: false,
                   },
                 },
@@ -128,6 +129,102 @@ const TRANSLATION_SCHEMA = {
 // ============================================================================
 // System prompts
 // ============================================================================
+
+// Programmatic lookup used for post-processing normalization.
+// Key: native script surface (exact match). Value: canonical roman spelling.
+// Entries with anusvara variants (आँ/आं) are listed separately so both match.
+const ROMAN_LOOKUP: Record<string, string> = {
+  // Pronouns / subject markers
+  'मैं': 'main',   'में': 'mein',   'मे': 'mein',
+  'है': 'hai',     'हैं': 'hain',   'हूँ': 'hoon',   'हूं': 'hoon',
+  'हो': 'ho',      'था': 'tha',     'थी': 'thi',     'थे': 'the',
+  'हुआ': 'hua',   'हुई': 'hui',    'हुए': 'hue',
+  'तुम': 'tum',   'आप': 'aap',     'हम': 'hum',
+  'मुझे': 'mujhe','तुझे': 'tujhe', 'उसे': 'use',
+  'हमें': 'hamein','तुम्हें': 'tumhein',
+  'मेरा': 'mera', 'मेरी': 'meri',  'मेरे': 'mere',
+  'तेरा': 'tera', 'तेरी': 'teri',  'तेरे': 'tere',
+  'हमारा': 'hamara','हमारी': 'hamari',
+  'उसका': 'uska', 'उसकी': 'uski',  'उसके': 'uske',
+  'इसका': 'iska', 'इसकी': 'iski',
+  // Demonstratives / interrogatives
+  'यह': 'yeh',    'ये': 'ye',
+  'वह': 'woh',    'वो': 'woh',
+  'यहाँ': 'yahan','यहां': 'yahan',
+  'वहाँ': 'wahan','वहां': 'wahan',
+  'क्या': 'kya',  'क्यों': 'kyun', 'कैसे': 'kaise','कहाँ': 'kahan','कहां': 'kahan',
+  'कब': 'kab',    'कौन': 'kaun',   'कितना': 'kitna',
+  // Negation / particles
+  'नहीं': 'nahin','न': 'na',       'मत': 'mat',
+  'हाँ': 'haan',  'हां': 'haan',
+  'भी': 'bhi',    'तो': 'to',      'ही': 'hi',
+  'और': 'aur',    'पर': 'par',     'जो': 'jo',
+  'कोई': 'koi',   'कुछ': 'kuch',  'सब': 'sab',
+  'अब': 'ab',     'जब': 'jab',    'तब': 'tab',
+  'फिर': 'phir',  'बस': 'bas',    'कभी': 'kabhi',
+  'हमेशा': 'hamesha','शायद': 'shayad','लेकिन': 'lekin','मगर': 'magar',
+  // Emotional / lyrical vocabulary
+  'दिल': 'dil',
+  'प्यार': 'pyaar',
+  'इश्क़': 'ishq', 'इश्क': 'ishq',
+  'मोहब्बत': 'mohabbat',
+  'ज़िंदगी': 'zindagi','जिंदगी': 'zindagi',
+  'ख़ुशी': 'khushi','खुशी': 'khushi',
+  'ग़म': 'gham',  'गम': 'gham',
+  'याद': 'yaad',  'बात': 'baat',  'साथ': 'saath', 'रात': 'raat',
+  'वक़्त': 'waqt','वक्त': 'waqt',
+  'ख़्वाब': 'khwab','ख्वाब': 'khwab',
+  'आवाज़': 'awaaz','आवाज': 'awaaz',
+  'दुनिया': 'duniya','रास्ता': 'raasta',
+  'मंज़िल': 'manzil','मंजिल': 'manzil',
+  'सफ़र': 'safar','सफर': 'safar',
+  'ख़ुदा': 'khuda','खुदा': 'khuda',
+  'ख़्वाहिश': 'khwahish','ख्वाहिश': 'khwahish',
+  'आँख': 'aankh','आंख': 'aankh',
+  'आँसू': 'aansu','आंसू': 'aansu',
+  'ख़याल': 'khayal','खयाल': 'khayal',
+  'ख़ुद': 'khud','खुद': 'khud',
+  'जान': 'jaan', 'दर्द': 'dard',
+  'उम्मीद': 'ummeed','उमीद': 'ummeed',
+  'इंतज़ार': 'intezaar','इंतजार': 'intezaar',
+  'एहसास': 'ehsaas','अहसास': 'ehsaas',
+  'खुशबू': 'khushbu','ख़ुशबू': 'khushbu',
+  'रूह': 'rooh',
+  // Common verbs (root forms)
+  'आना': 'aana',  'जाना': 'jaana','होना': 'hona', 'करना': 'karna',
+  'देखना': 'dekhna','सुनना': 'sunna','मिलना': 'milna',
+  'रहना': 'rehna','चलना': 'chalna','बोलना': 'bolna',
+  'समझना': 'samajhna','सोचना': 'sochna','छोड़ना': 'chhodna',
+};
+
+// After generation, walk every token and normalise its roman against ROMAN_LOOKUP.
+// Any token that changes also patches the parent line's roman string via whole-word
+// replacement so the main lyrics display stays in sync.
+function normalizeRomanization(lesson: { sections: Array<{ lines: Array<{ text: { roman: string }; tokens: Array<{ surface: string; roman: string }> }> }> }): void {
+  for (const section of lesson.sections) {
+    for (const line of section.lines) {
+      const replacements: Array<{ from: string; to: string }> = [];
+
+      for (const token of line.tokens) {
+        const canonical = ROMAN_LOOKUP[token.surface];
+        if (canonical && canonical !== token.roman) {
+          replacements.push({ from: token.roman, to: canonical });
+          token.roman = canonical;
+        }
+      }
+
+      if (replacements.length === 0) continue;
+
+      let lineRoman = line.text.roman;
+      for (const { from, to } of replacements) {
+        if (!from) continue;
+        const escaped = from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        lineRoman = lineRoman.replace(new RegExp(`\\b${escaped}\\b`, 'gi'), to);
+      }
+      line.text.roman = lineRoman;
+    }
+  }
+}
 
 const ROMANIZATION_TABLE = `ROMANIZATION CANONICAL TABLE — use EXACTLY these spellings, never deviate:
 मैं (I)        → main        में (in/inside)  → mein        है            → hai          हैं           → hain
@@ -185,6 +282,7 @@ For EVERY lyric line produce:
    - spectrum: nearby synonyms showing meaning contrast. Format: "word1=meaning, word2=meaning". E.g. "pyaar=everyday love, prem=pure/Sanskrit, ishq=obsessive longing". Use "" if the word is unique or the spectrum is too obvious to be useful.
    - verbForm: if this token is a verb or verb form, write "root (meaning) · tense/form". E.g. "jaana (to go) · subjunctive" · "karna (to do) · perfective" · "hona (to be) · continuous". Use "" if not a verb.
    - grammaticalNote: gender, case, or number if it adds learner value. E.g. "masc. sing." · "genitive" · "2nd person intimate (tu-form)" · "plural honorific". Use "" if not useful or obvious.
+   - songContext: 1–2 sentences explaining WHY the songwriter chose THIS specific word — what literary, emotional, or cultural effect it creates that a close synonym would not. Be specific to this song and line; do not just restate the gloss. Use "" if you cannot make a genuinely insightful and specific observation.
 
 STRUCTURE:
 - schemaVersion: "1.0.0"
@@ -480,6 +578,8 @@ export async function generateLyricLesson(
     })),
   };
 
+  normalizeRomanization(lesson);
+
   const totalPrompt = p1 + p2d + p2n;
   const totalCompletion = c1 + c2d + c2n;
   const estimatedCostUSD = calculateCost(totalPrompt, totalCompletion);
@@ -522,8 +622,9 @@ const LINE_RETRANSLATE_SCHEMA = {
           spectrum:        { type: 'string' },
           verbForm:        { type: 'string' },
           grammaticalNote: { type: 'string' },
+          songContext:     { type: 'string' },
         },
-        required: ['id', 'surface', 'roman', 'gloss', 'etymology', 'register', 'spectrum', 'verbForm', 'grammaticalNote'],
+        required: ['id', 'surface', 'roman', 'gloss', 'etymology', 'register', 'spectrum', 'verbForm', 'grammaticalNote', 'songContext'],
         additionalProperties: false,
       },
     },
@@ -567,6 +668,7 @@ Output fields:
   · spectrum: nearby synonyms with contrast ("pyaar=everyday, ishq=obsessive") or ""
   · verbForm: "root (meaning) · tense/form" if verb, else ""
   · grammaticalNote: gender/case/number if useful, else ""
+  · songContext: 1–2 sentences on WHY this specific word was chosen over a synonym — what effect it creates in this line. Use "" if nothing specific can be said.
 
 ${TRANSLATION_HIERARCHY}
 

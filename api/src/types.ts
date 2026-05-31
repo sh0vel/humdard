@@ -145,6 +145,11 @@ export interface LyricToken {
   surface: string;
   roman: string;
   gloss: string;
+  etymology: string;       // origin language + root, e.g. "Arabic: حُبّ via Persian"
+  register: string;        // comma-separated tags: poetic, colloquial, urdu-heavy, etc.
+  spectrum: string;        // nearby words with contrast, e.g. "pyaar=everyday, ishq=obsessive"
+  verbForm: string;        // if verb: "jaana (to go) · subjunctive" — else ""
+  grammaticalNote: string; // gender/case/number if useful — else ""
 }
 
 // ============================================================================

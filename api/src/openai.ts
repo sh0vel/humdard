@@ -76,12 +76,17 @@ const BASE_LESSON_SCHEMA = {
                   items: {
                     type: 'object',
                     properties: {
-                      id: { type: 'string' },
-                      surface: { type: 'string' },
-                      roman: { type: 'string' },
-                      gloss: { type: 'string' },
+                      id:               { type: 'string' },
+                      surface:          { type: 'string' },
+                      roman:            { type: 'string' },
+                      gloss:            { type: 'string' },
+                      etymology:        { type: 'string' },
+                      register:         { type: 'string' },
+                      spectrum:         { type: 'string' },
+                      verbForm:         { type: 'string' },
+                      grammaticalNote:  { type: 'string' },
                     },
-                    required: ['id', 'surface', 'roman', 'gloss'],
+                    required: ['id', 'surface', 'roman', 'gloss', 'etymology', 'register', 'spectrum', 'verbForm', 'grammaticalNote'],
                     additionalProperties: false,
                   },
                 },
@@ -124,6 +129,25 @@ const TRANSLATION_SCHEMA = {
 // System prompts
 // ============================================================================
 
+const ROMANIZATION_TABLE = `ROMANIZATION CANONICAL TABLE — use EXACTLY these spellings, never deviate:
+मैं (I)        → main        में (in/inside)  → mein        है            → hai          हैं           → hain
+नहीं           → nahin       हाँ              → haan        भी            → bhi          तो            → to
+और             → aur         पर               → par         जो            → jo           कोई           → koi
+यह             → yeh         वह/वो            → woh         यहाँ          → yahan        वहाँ          → wahan
+क्या           → kya         तुम              → tum         मुझे          → mujhe        तुझे          → tujhe
+हमें           → hamein      तुम्हें          → tumhein     मेरा/मेरी/मेरे → mera/meri/mere
+तेरा/तेरी/तेरे → tera/teri/tere               हमारा/हमारी  → hamara/hamari
+दिल            → dil         प्यार            → pyaar       इश्क़          → ishq         मोहब्बत      → mohabbat
+ज़िंदगी        → zindagi     ख़ुशी            → khushi      ग़म            → gham         याद           → yaad
+बात            → baat        साथ              → saath       रात            → raat         वक़्त         → waqt
+ख़्वाब         → khwab       आवाज़            → awaaz       दुनिया         → duniya       रास्ता        → raasta
+मंज़िल         → manzil      सफ़र             → safar       ख़ुदा          → khuda        ख़्वाहिश      → khwahish
+हो             → ho          हूँ              → hoon        था/थी/थे      → tha/thi/the  हुआ/हुई      → hua/hui
+आना            → aana        जाना             → jaana       होना           → hona         करना          → karna
+लेकिन          → lekin       मगर              → magar       अब             → ab           जब            → jab
+आँख            → aankh       आँसू             → aansu       ख़याल          → khayal       ख़ुद           → khud
+कुछ            → kuch        कभी              → kabhi       सब             → sab          हमेशा         → hamesha`;
+
 const BASE_SYSTEM_PROMPT = `You are an expert language-learning content creator for South Asian songs.
 
 AUTO-DETECT the primary language from the lyrics and output in the correct NATIVE SCRIPT:
@@ -131,6 +155,8 @@ AUTO-DETECT the primary language from the lyrics and output in the correct NATIV
 - Urdu (Pakistani music, ghazal tradition, heavy Persian/Arabic loanwords) → Arabic/Nastaliq, iso: "ur", script: "Arabic"
 - Bangla/Bengali → Bengali script, iso: "bn", script: "Bengali"
 - Ambiguous Hindustani → default to Devanagari (Hindi)
+
+${ROMANIZATION_TABLE}
 
 For EVERY lyric line produce:
 
@@ -140,6 +166,8 @@ For EVERY lyric line produce:
    - NEVER copy Roman text into the target field
 
 2. roman — consistent beginner-friendly Latin transliteration, NO diacritics (no ā ī ū ṇ etc.)
+   - MUST follow the canonical table above for every word that appears in it
+   - Apply the same canonical spelling consistently across every line of the song
 
 3. wordByWord — token-order English gloss
    - lowercase, space-separated, intentionally ungrammatical
@@ -147,11 +175,16 @@ For EVERY lyric line produce:
    - compact and literal — do NOT add interpretation or emotion
    - include particles (hi, se, ko, ab, nahin, bhi, jo) as separate glosses
 
-4. tokens — per-word breakdown for flashcard learning
+4. tokens — per-word educational breakdown; NINE fields per token:
    - id: "t001", "t002", ... (restart per line)
    - surface: exact substring from the target line
-   - roman: romanization of that token (no diacritics)
+   - roman: romanization of that token (follow canonical table; no diacritics)
    - gloss: short English meaning (1–4 words)
+   - etymology: origin language + root in one line. Examples: "Arabic: حُبّ (hubb), via Persian" · "Sanskrit: प्रेम (prema)" · "Persian: زندگی (zendagi)" · "native Indic". Use "" for very common words with obvious/unknown origins.
+   - register: up to 3 comma-separated tags from this list only — [formal, colloquial, poetic, intimate, religious, urdu-heavy, sanskrit-heavy, neutral]. Choose the most accurate; default to "neutral" if nothing else fits.
+   - spectrum: nearby synonyms showing meaning contrast. Format: "word1=meaning, word2=meaning". E.g. "pyaar=everyday love, prem=pure/Sanskrit, ishq=obsessive longing". Use "" if the word is unique or the spectrum is too obvious to be useful.
+   - verbForm: if this token is a verb or verb form, write "root (meaning) · tense/form". E.g. "jaana (to go) · subjunctive" · "karna (to do) · perfective" · "hona (to be) · continuous". Use "" if not a verb.
+   - grammaticalNote: gender, case, or number if it adds learner value. E.g. "masc. sing." · "genitive" · "2nd person intimate (tu-form)" · "plural honorific". Use "" if not useful or obvious.
 
 STRUCTURE:
 - schemaVersion: "1.0.0"
@@ -162,7 +195,7 @@ CRITICAL RULES:
 - Exactly one output line per input lyric line — do NOT merge or split
 - Remove section labels ([Verse 1], [Chorus], etc.) and credits — process only lyric lines
 - Keep original line order
-- Romanization must be consistent across the whole song
+- Romanization must be consistent across the whole song — same word, same spelling, every time
 - Return ONLY the JSON matching the schema`;
 
 const TRANSLATION_HIERARCHY = `TRANSLATION HIERARCHY
@@ -480,12 +513,17 @@ const LINE_RETRANSLATE_SCHEMA = {
       items: {
         type: 'object',
         properties: {
-          id:      { type: 'string' },
-          surface: { type: 'string' },
-          roman:   { type: 'string' },
-          gloss:   { type: 'string' },
+          id:              { type: 'string' },
+          surface:         { type: 'string' },
+          roman:           { type: 'string' },
+          gloss:           { type: 'string' },
+          etymology:       { type: 'string' },
+          register:        { type: 'string' },
+          spectrum:        { type: 'string' },
+          verbForm:        { type: 'string' },
+          grammaticalNote: { type: 'string' },
         },
-        required: ['id', 'surface', 'roman', 'gloss'],
+        required: ['id', 'surface', 'roman', 'gloss', 'etymology', 'register', 'spectrum', 'verbForm', 'grammaticalNote'],
         additionalProperties: false,
       },
     },
@@ -515,11 +553,20 @@ export async function retranslateLine(
 You are given all lines of a song for context, with one line marked as TARGET.
 Produce translations ONLY for the TARGET line.
 
+${ROMANIZATION_TABLE}
+
 Output fields:
-- roman: beginner-friendly Latin transliteration, no diacritics
+- roman: beginner-friendly Latin transliteration, no diacritics — follow canonical table
 - wordByWord: token-order English gloss, intentionally ungrammatical, lowercase, compact
 - direct: literal + grammatical English, plain and neutral
 - natural: emotionally faithful, fluent, conversational English
+- tokens: per-word educational breakdown of the TARGET line (9 fields each):
+  · id: t001, t002, ... · surface · roman (follow canonical table) · gloss (1–4 words)
+  · etymology: origin language + root ("Arabic: حُبّ via Persian", "Sanskrit: prema", "native Indic", or "")
+  · register: up to 3 tags from [formal, colloquial, poetic, intimate, religious, urdu-heavy, sanskrit-heavy, neutral]
+  · spectrum: nearby synonyms with contrast ("pyaar=everyday, ishq=obsessive") or ""
+  · verbForm: "root (meaning) · tense/form" if verb, else ""
+  · grammaticalNote: gender/case/number if useful, else ""
 
 ${TRANSLATION_HIERARCHY}
 
@@ -534,7 +581,6 @@ Rules:
 - direct and natural must be fully English — no Devanagari/Arabic/Bengali characters
 - direct and natural must be meaningfully different from each other
 - Never leave South Asian words untranslated
-- tokens: per-word breakdown of the TARGET line only (id: t001..., surface, roman, gloss)
 - Return ONLY the JSON matching the schema`;
 
   const contextTable = allLines

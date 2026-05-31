@@ -76,18 +76,14 @@ const BASE_LESSON_SCHEMA = {
                   items: {
                     type: 'object',
                     properties: {
-                      id:               { type: 'string' },
-                      surface:          { type: 'string' },
-                      roman:            { type: 'string' },
-                      gloss:            { type: 'string' },
-                      etymology:        { type: 'string' },
-                      register:         { type: 'string' },
-                      spectrum:         { type: 'string' },
-                      verbForm:         { type: 'string' },
-                      grammaticalNote:  { type: 'string' },
-                      songContext:      { type: 'string' },
+                      id:          { type: 'string' },
+                      surface:     { type: 'string' },
+                      roman:       { type: 'string' },
+                      gloss:       { type: 'string' },
+                      spectrum:    { type: 'string' },
+                      songContext: { type: 'string' },
                     },
-                    required: ['id', 'surface', 'roman', 'gloss', 'etymology', 'register', 'spectrum', 'verbForm', 'grammaticalNote', 'songContext'],
+                    required: ['id', 'surface', 'roman', 'gloss', 'spectrum', 'songContext'],
                     additionalProperties: false,
                   },
                 },
@@ -272,17 +268,13 @@ For EVERY lyric line produce:
    - compact and literal — do NOT add interpretation or emotion
    - include particles (hi, se, ko, ab, nahin, bhi, jo) as separate glosses
 
-4. tokens — per-word educational breakdown; NINE fields per token:
+4. tokens — per-word educational breakdown; SIX fields per token:
    - id: "t001", "t002", ... (restart per line)
    - surface: exact substring from the target line
    - roman: romanization of that token (follow canonical table; no diacritics)
    - gloss: short English meaning (1–4 words)
-   - etymology: origin language + root in one line. Examples: "Arabic: حُبّ (hubb), via Persian" · "Sanskrit: प्रेम (prema)" · "Persian: زندگی (zendagi)" · "native Indic". Use "" for very common words with obvious/unknown origins.
-   - register: up to 3 comma-separated tags from this list only — [formal, colloquial, poetic, intimate, religious, urdu-heavy, sanskrit-heavy, neutral]. Choose the most accurate; default to "neutral" if nothing else fits.
-   - spectrum: nearby synonyms showing meaning contrast. Format: "word1=meaning, word2=meaning". E.g. "pyaar=everyday love, prem=pure/Sanskrit, ishq=obsessive longing". Use "" if the word is unique or the spectrum is too obvious to be useful.
-   - verbForm: if this token is a verb or verb form, write "root (meaning) · tense/form". E.g. "jaana (to go) · subjunctive" · "karna (to do) · perfective" · "hona (to be) · continuous". Use "" if not a verb.
-   - grammaticalNote: gender, case, or number if it adds learner value. E.g. "masc. sing." · "genitive" · "2nd person intimate (tu-form)" · "plural honorific". Use "" if not useful or obvious.
-   - songContext: 1–2 sentences explaining WHY the songwriter chose THIS specific word — what literary, emotional, or cultural effect it creates that a close synonym would not. Be specific to this song and line; do not just restate the gloss. Use "" if you cannot make a genuinely insightful and specific observation.
+   - spectrum: nearby synonyms showing meaning contrast. Format: "word1=meaning, word2=meaning". E.g. "pyaar=everyday love, prem=pure/Sanskrit, ishq=obsessive longing". Use "" for particles, postpositions, or words with no meaningful synonyms.
+   - songContext: 1–2 sentences explaining WHY the songwriter chose THIS specific word — what literary, emotional, or cultural effect it creates that a close synonym would not. Be specific to this song and line; do not just restate the gloss. Use "" for particles, postpositions, or common grammatical words where no genuine insight can be offered.
 
 STRUCTURE:
 - schemaVersion: "1.0.0"
@@ -337,6 +329,7 @@ For each line (lineId | native script | romanization), produce a NATURAL English
 - NOT overly literal; light paraphrase is fine for fluency
 - Must remain semantically equivalent to direct — same meaning, better flow
 - For repeated lines: natural MAY vary slightly in phrasing but never in meaning
+- May smooth English and clarify implied meaning, but MUST NOT introduce new actors, locations, emotions, intentions, relationships, or imagery that do not exist in the original lyric
 
 GRAMMATICAL INDEPENDENCE — CRITICAL:
 Each line's translation must read as a grammatically self-contained English lyric line.
@@ -613,18 +606,14 @@ const LINE_RETRANSLATE_SCHEMA = {
       items: {
         type: 'object',
         properties: {
-          id:              { type: 'string' },
-          surface:         { type: 'string' },
-          roman:           { type: 'string' },
-          gloss:           { type: 'string' },
-          etymology:       { type: 'string' },
-          register:        { type: 'string' },
-          spectrum:        { type: 'string' },
-          verbForm:        { type: 'string' },
-          grammaticalNote: { type: 'string' },
-          songContext:     { type: 'string' },
+          id:          { type: 'string' },
+          surface:     { type: 'string' },
+          roman:       { type: 'string' },
+          gloss:       { type: 'string' },
+          spectrum:    { type: 'string' },
+          songContext: { type: 'string' },
         },
-        required: ['id', 'surface', 'roman', 'gloss', 'etymology', 'register', 'spectrum', 'verbForm', 'grammaticalNote', 'songContext'],
+        required: ['id', 'surface', 'roman', 'gloss', 'spectrum', 'songContext'],
         additionalProperties: false,
       },
     },
@@ -661,14 +650,10 @@ Output fields:
 - wordByWord: token-order English gloss, intentionally ungrammatical, lowercase, compact
 - direct: literal + grammatical English, plain and neutral
 - natural: emotionally faithful, fluent, conversational English
-- tokens: per-word educational breakdown of the TARGET line (9 fields each):
+- tokens: per-word educational breakdown of the TARGET line (6 fields each):
   · id: t001, t002, ... · surface · roman (follow canonical table) · gloss (1–4 words)
-  · etymology: origin language + root ("Arabic: حُبّ via Persian", "Sanskrit: prema", "native Indic", or "")
-  · register: up to 3 tags from [formal, colloquial, poetic, intimate, religious, urdu-heavy, sanskrit-heavy, neutral]
-  · spectrum: nearby synonyms with contrast ("pyaar=everyday, ishq=obsessive") or ""
-  · verbForm: "root (meaning) · tense/form" if verb, else ""
-  · grammaticalNote: gender/case/number if useful, else ""
-  · songContext: 1–2 sentences on WHY this specific word was chosen over a synonym — what effect it creates in this line. Use "" if nothing specific can be said.
+  · spectrum: nearby synonyms with contrast ("pyaar=everyday, ishq=obsessive") or "" for particles/postpositions
+  · songContext: 1–2 sentences on WHY this specific word was chosen over a synonym — what effect it creates in this line. Use "" for particles, postpositions, or common grammatical words.
 
 ${TRANSLATION_HIERARCHY}
 
@@ -682,6 +667,7 @@ ${FRAGMENT_NOTE}
 Rules:
 - direct and natural must be fully English — no Devanagari/Arabic/Bengali characters
 - direct and natural must be meaningfully different from each other
+- natural may smooth English and clarify implied meaning, but MUST NOT introduce new actors, locations, emotions, intentions, relationships, or imagery that do not exist in the original lyric
 - Never leave South Asian words untranslated
 - Return ONLY the JSON matching the schema`;
 

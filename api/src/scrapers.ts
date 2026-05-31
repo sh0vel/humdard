@@ -112,12 +112,6 @@ function buildQuery(title: string, artist?: string): string {
   return encodeURIComponent(artist ? `${title} ${artist}` : title);
 }
 
-function primaryArtist(artist?: string): string | undefined {
-  if (!artist) return undefined;
-  // Lyric sites list the vocalist, not all composers — use only the first artist
-  return artist.split(/,|feat\.|ft\./i)[0].trim() || undefined;
-}
-
 function titleMatches(query: string, found: string): boolean {
   const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '');
   const words = (s: string) => normalize(s).split(/\s+/).filter((w) => w.length >= 2);

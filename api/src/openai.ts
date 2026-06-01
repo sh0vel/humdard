@@ -622,7 +622,7 @@ async function generateTokens(
         TOKEN_SCHEMA,
         'tokens',
         'gpt-4o'
-      );
+      ).catch(() => ({ result: { lines: [] }, promptTokens: 0, completionTokens: 0 }));
     })
   );
 

@@ -6,7 +6,7 @@
  *   Phase 2 (parallel)   — direct | natural translations run concurrently
  */
 
-import { Env, LyricLesson, LyricLine, OpenAIRequest, OpenAIResponse } from './types';
+import { Env, LyricLesson, OpenAIRequest, OpenAIResponse } from './types';
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 const DEFAULT_MODEL = 'gpt-5.5';
@@ -71,24 +71,8 @@ const BASE_LESSON_SCHEMA = {
                   required: ['target', 'roman', 'wordByWord'],
                   additionalProperties: false,
                 },
-                tokens: {
-                  type: 'array',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      id:          { type: 'string' },
-                      surface:     { type: 'string' },
-                      roman:       { type: 'string' },
-                      gloss:       { type: 'string' },
-                      spectrum:    { type: 'string' },
-                      songContext: { type: 'string' },
-                    },
-                    required: ['id', 'surface', 'roman', 'gloss', 'spectrum', 'songContext'],
-                    additionalProperties: false,
-                  },
-                },
               },
-              required: ['lineId', 'order', 'text', 'tokens'],
+              required: ['lineId', 'order', 'text'],
               additionalProperties: false,
             },
           },
@@ -114,6 +98,41 @@ const TRANSLATION_SCHEMA = {
           translation: { type: 'string' },
         },
         required: ['lineId', 'translation'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['lines'],
+  additionalProperties: false,
+};
+
+const TOKEN_SCHEMA = {
+  type: 'object',
+  properties: {
+    lines: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          lineId: { type: 'string' },
+          tokens: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                id:          { type: 'string' },
+                surface:     { type: 'string' },
+                roman:       { type: 'string' },
+                gloss:       { type: 'string' },
+                spectrum:    { type: 'string' },
+                songContext: { type: 'string' },
+              },
+              required: ['id', 'surface', 'roman', 'gloss', 'spectrum', 'songContext'],
+              additionalProperties: false,
+            },
+          },
+        },
+        required: ['lineId', 'tokens'],
         additionalProperties: false,
       },
     },
@@ -268,14 +287,6 @@ For EVERY lyric line produce:
    - compact and literal — do NOT add interpretation or emotion
    - include particles (hi, se, ko, ab, nahin, bhi, jo) as separate glosses
 
-4. tokens — per-word educational breakdown; SIX fields per token:
-   - id: "t001", "t002", ... (restart per line)
-   - surface: exact substring from the target line
-   - roman: romanization of that token (follow canonical table; no diacritics)
-   - gloss: short English meaning (1–4 words)
-   - spectrum: Learner-oriented, compact, and comparison-based. Prefer short contrast patterns over dictionary explanations. Max 12 words per alternative. Use "" only if the word has no meaningful alternatives. Write alternatives in ROMAN SCRIPT only (no native script characters).
-   - songContext: Single concise sentence, max 15 words. Explain why this word was chosen in this lyric. Do not restate the gloss or spectrum. For common grammatical particles (ka, ki, ke, se, ne, ko, bhi, hi, to, na, etc.), give a concise learner-focused grammar note instead of leaving empty when helpful.
-
 STRUCTURE:
 - schemaVersion: "1.0.0"
 - Group all lines into one section: sectionId="main", label="Main", order=1
@@ -286,6 +297,26 @@ CRITICAL RULES:
 - Remove section labels ([Verse 1], [Chorus], etc.) and credits — process only lyric lines
 - Keep original line order
 - Romanization must be consistent across the whole song — same word, same spelling, every time
+- Return ONLY the JSON matching the schema`;
+
+const TOKEN_SYSTEM_PROMPT = `You are an expert South Asian linguistics educator creating per-word breakdowns for song lyrics.
+
+You are given all lines of a song (lineId | native script | romanization | word-by-word gloss).
+Produce a tokens array for EVERY line.
+
+${ROMANIZATION_TABLE}
+
+For each token produce SIX fields:
+- id: "t001", "t002", ... (restart per line)
+- surface: exact substring from the native script line
+- roman: romanization of that token — follow canonical table, no diacritics
+- gloss: short English meaning (1–4 words)
+- spectrum: Nearby synonyms/alternatives a learner may encounter. Learner-oriented, compact, comparison-based. Short contrast patterns, max 12 words per alternative. Roman script only — no native script characters. Use "" only if no meaningful alternatives exist.
+- songContext: Single concise sentence, max 15 words. Explain why THIS word was chosen in this lyric — its tone, imagery, or emotional effect. Do not restate the gloss or spectrum. For grammatical particles (ka, ki, ke, se, ne, ko, bhi, hi, to, na, etc.), give a concise learner-focused grammar note instead.
+
+RULES:
+- Every word in the line must have exactly one token (including particles)
+- surface must be an exact substring of the native script target
 - Return ONLY the JSON matching the schema`;
 
 const TRANSLATION_HIERARCHY = `TRANSLATION HIERARCHY
@@ -470,7 +501,6 @@ type BaseLyricLesson = Omit<LyricLesson, 'sections'> & {
       lineId: string;
       order: number;
       text: { target: string; roman: string; wordByWord: string };
-      tokens: LyricLine['tokens'];
     }>;
   }>;
 };
@@ -489,7 +519,7 @@ async function generateBase(
   if (titleHint) userPrompt += `Title hint: ${titleHint}\n`;
   if (artistHint) userPrompt += `Artist hint: ${artistHint}\n`;
   if (lessonId) userPrompt += `Use lessonId: ${lessonId}\n`;
-  userPrompt += '\nDetect the language, produce target (native script), roman, wordByWord, and tokens for each line.';
+  userPrompt += '\nDetect the language, produce target (native script), roman, and wordByWord for each line.';
 
   const { result, promptTokens, completionTokens } = await callOpenAI<BaseLyricLesson>(
     env,
@@ -556,6 +586,48 @@ async function generateTranslations(
 }
 
 // ============================================================================
+// Phase 2c: token call
+// ============================================================================
+
+interface FlatLineWithGloss extends FlatLine {
+  wordByWord: string;
+}
+
+async function generateTokens(
+  env: Env,
+  lines: FlatLineWithGloss[],
+  titleHint?: string,
+  artistHint?: string
+): Promise<{ map: Map<string, import('./types').LyricToken[]>; promptTokens: number; completionTokens: number }> {
+  const lineTable = lines
+    .map(l => `${l.lineId} | ${l.target} | ${l.roman} | ${l.wordByWord}`)
+    .join('\n');
+
+  let userPrompt = '';
+  if (titleHint || artistHint) {
+    userPrompt += `Song: "${titleHint ?? ''}"${artistHint ? ` by ${artistHint}` : ''}\n\n`;
+  }
+  userPrompt += `Lines (lineId | native script | romanization | word-by-word):\n${lineTable}\n\n`;
+  userPrompt += 'Produce tokens for every line.';
+
+  const { result, promptTokens, completionTokens } = await callOpenAI<{ lines: { lineId: string; tokens: import('./types').LyricToken[] }[] }>(
+    env,
+    [
+      { role: 'system', content: TOKEN_SYSTEM_PROMPT },
+      { role: 'user', content: userPrompt },
+    ],
+    TOKEN_SCHEMA,
+    'tokens'
+  );
+
+  console.log(`[tokens] ${promptTokens}+${completionTokens} tokens`);
+
+  const map = new Map<string, import('./types').LyricToken[]>();
+  for (const l of result.lines) map.set(l.lineId, l.tokens);
+  return { map, promptTokens, completionTokens };
+}
+
+// ============================================================================
 // Orchestrator
 // ============================================================================
 
@@ -571,7 +643,7 @@ export async function generateLyricLesson(
 ): Promise<LyricLessonResult> {
   if (!env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not set');
 
-  // Phase 1: structure + linguistic analysis
+  // Phase 1: structure + native script + roman + wordByWord
   const { base, promptTokens: p1, completionTokens: c1 } = await generateBase(
     env, rawLyrics, titleHint, artistHint, lessonId, feedback
   );
@@ -580,17 +652,22 @@ export async function generateLyricLesson(
   const flatLines: FlatLine[] = base.sections.flatMap(s =>
     s.lines.map(l => ({ lineId: l.lineId, target: l.text.target, roman: l.text.roman }))
   );
+  const flatLinesWithGloss: FlatLineWithGloss[] = base.sections.flatMap(s =>
+    s.lines.map(l => ({ lineId: l.lineId, target: l.text.target, roman: l.text.roman, wordByWord: l.text.wordByWord }))
+  );
 
-  // Phase 2: parallel translation calls
+  // Phase 2: direct + natural + tokens all in parallel
   const [
     { map: directMap, promptTokens: p2d, completionTokens: c2d },
     { map: naturalMap, promptTokens: p2n, completionTokens: c2n },
+    { map: tokenMap,   promptTokens: p2t, completionTokens: c2t },
   ] = await Promise.all([
     generateTranslations(env, flatLines, 'direct', titleHint, artistHint),
     generateTranslations(env, flatLines, 'natural', titleHint, artistHint),
+    generateTokens(env, flatLinesWithGloss, titleHint, artistHint),
   ]);
 
-  // Merge translations into full lesson
+  // Merge everything into the full lesson
   const lesson: LyricLesson = {
     ...base,
     sections: base.sections.map(section => ({
@@ -599,18 +676,18 @@ export async function generateLyricLesson(
         ...line,
         text: {
           ...line.text,
-          direct: directMap.get(line.lineId) ?? '',
+          direct:  directMap.get(line.lineId)  ?? '',
           natural: naturalMap.get(line.lineId) ?? '',
         },
-        tokens: line.tokens,
+        tokens: tokenMap.get(line.lineId) ?? [],
       })),
     })),
   };
 
   normalizeRomanization(lesson);
 
-  const totalPrompt = p1 + p2d + p2n;
-  const totalCompletion = c1 + c2d + c2n;
+  const totalPrompt = p1 + p2d + p2n + p2t;
+  const totalCompletion = c1 + c2d + c2n + c2t;
   const estimatedCostUSD = calculateCost(totalPrompt, totalCompletion);
 
   console.log(`[generateLyricLesson] total ~$${estimatedCostUSD.toFixed(4)}`);

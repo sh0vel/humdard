@@ -21,7 +21,7 @@ max_retries = 2
 # Environment Variables
 [vars]
 ALLOWED_ORIGINS = "*"
-OPENAI_MODEL = "gpt-5.5"
+OPENAI_MODEL = "gpt-4o"
 SPOTIFY_CLIENT_ID = "55c2275c63634074aa13b4d40e359e6f"
 
 # Secrets (set via wrangler secret put)
@@ -29,11 +29,20 @@ SPOTIFY_CLIENT_ID = "55c2275c63634074aa13b4d40e359e6f"
 # - SPOTIFY_CLIENT_SECRET: Your Spotify app client secret
 # - YOUTUBE_API_KEY: YouTube Data API v3 key (enables description-based lyric lookup)
 
-# Development configuration
+# Local dev
 [env.development]
-vars = { ALLOWED_ORIGINS = "*", OPENAI_MODEL = "gpt-5.5" }
+vars = { ALLOWED_ORIGINS = "*", OPENAI_MODEL = "gpt-4o" }
 
-# Production configuration
+# Preview — deploy feature branches here before merging to main
+# Usage: npx wrangler deploy --env preview
+# URL:   humdard-lyric-api-preview.<account>.workers.dev
+# Secrets must be set once: npx wrangler secret put OPENAI_API_KEY --env preview
+[env.preview]
+name = "humdard-lyric-api-preview"
+vars = { ALLOWED_ORIGINS = "*", OPENAI_MODEL = "gpt-4o" }
+
+# Production — deploys to humdard-lyric-api.<account>.workers.dev
+# Usage: npx wrangler deploy --env production
 [env.production]
-# Set specific allowed origins in production
-# vars = { ALLOWED_ORIGINS = "https://yourdomain.com,https://app.yourdomain.com" }
+name = "humdard-lyric-api"
+vars = { ALLOWED_ORIGINS = "*", OPENAI_MODEL = "gpt-4o" }

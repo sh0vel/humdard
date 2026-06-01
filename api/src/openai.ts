@@ -6,10 +6,10 @@
  *   Phase 2 (parallel)   — direct | natural translations run concurrently
  */
 
-import { Env, LyricLesson, LyricLine, OpenAIRequest, OpenAIResponse } from './types';
+import { Env, LyricLesson, OpenAIRequest, OpenAIResponse } from './types';
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
-const DEFAULT_MODEL = 'gpt-5.5';
+const DEFAULT_MODEL = 'gpt-4o';
 
 // ============================================================================
 // Schemas
@@ -66,27 +66,12 @@ const BASE_LESSON_SCHEMA = {
                   properties: {
                     target: { type: 'string' },
                     roman: { type: 'string' },
-                    wordByWord: { type: 'string' },
                   },
-                  required: ['target', 'roman', 'wordByWord'],
+                  required: ['target', 'roman'],
                   additionalProperties: false,
                 },
-                tokens: {
-                  type: 'array',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      id: { type: 'string' },
-                      surface: { type: 'string' },
-                      roman: { type: 'string' },
-                      gloss: { type: 'string' },
-                    },
-                    required: ['id', 'surface', 'roman', 'gloss'],
-                    additionalProperties: false,
-                  },
-                },
               },
-              required: ['lineId', 'order', 'text', 'tokens'],
+              required: ['lineId', 'order', 'text'],
               additionalProperties: false,
             },
           },
@@ -120,9 +105,160 @@ const TRANSLATION_SCHEMA = {
   additionalProperties: false,
 };
 
+const TOKEN_SCHEMA = {
+  type: 'object',
+  properties: {
+    lines: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          lineId: { type: 'string' },
+          tokens: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                id:          { type: 'string' },
+                surface:     { type: 'string' },
+                roman:       { type: 'string' },
+                gloss:       { type: 'string' },
+                definition:  { type: 'string' },
+                spectrum:    { type: 'string' },
+                songContext: { type: 'string' },
+              },
+              required: ['id', 'surface', 'roman', 'gloss', 'definition', 'spectrum', 'songContext'],
+              additionalProperties: false,
+            },
+          },
+        },
+        required: ['lineId', 'tokens'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['lines'],
+  additionalProperties: false,
+};
+
 // ============================================================================
 // System prompts
 // ============================================================================
+
+// Programmatic lookup used for post-processing normalization.
+// Key: native script surface (exact match). Value: canonical roman spelling.
+// Entries with anusvara variants (आँ/आं) are listed separately so both match.
+const ROMAN_LOOKUP: Record<string, string> = {
+  // Pronouns / subject markers
+  'मैं': 'main',   'में': 'mein',   'मे': 'mein',
+  'है': 'hai',     'हैं': 'hain',   'हूँ': 'hoon',   'हूं': 'hoon',
+  'हो': 'ho',      'था': 'tha',     'थी': 'thi',     'थे': 'the',
+  'हुआ': 'hua',   'हुई': 'hui',    'हुए': 'hue',
+  'तुम': 'tum',   'आप': 'aap',     'हम': 'hum',
+  'मुझे': 'mujhe','तुझे': 'tujhe', 'उसे': 'use',
+  'हमें': 'hamein','तुम्हें': 'tumhein',
+  'मेरा': 'mera', 'मेरी': 'meri',  'मेरे': 'mere',
+  'तेरा': 'tera', 'तेरी': 'teri',  'तेरे': 'tere',
+  'हमारा': 'hamara','हमारी': 'hamari',
+  'उसका': 'uska', 'उसकी': 'uski',  'उसके': 'uske',
+  'इसका': 'iska', 'इसकी': 'iski',
+  // Demonstratives / interrogatives
+  'यह': 'yeh',    'ये': 'ye',
+  'वह': 'woh',    'वो': 'woh',
+  'यहाँ': 'yahan','यहां': 'yahan',
+  'वहाँ': 'wahan','वहां': 'wahan',
+  'क्या': 'kya',  'क्यों': 'kyun', 'कैसे': 'kaise','कहाँ': 'kahan','कहां': 'kahan',
+  'कब': 'kab',    'कौन': 'kaun',   'कितना': 'kitna',
+  // Negation / particles
+  'नहीं': 'nahin','न': 'na',       'मत': 'mat',
+  'हाँ': 'haan',  'हां': 'haan',
+  'भी': 'bhi',    'तो': 'to',      'ही': 'hi',
+  'और': 'aur',    'पर': 'par',     'जो': 'jo',
+  'कोई': 'koi',   'कुछ': 'kuch',  'सब': 'sab',
+  'अब': 'ab',     'जब': 'jab',    'तब': 'tab',
+  'फिर': 'phir',  'बस': 'bas',    'कभी': 'kabhi',
+  'हमेशा': 'hamesha','शायद': 'shayad','लेकिन': 'lekin','मगर': 'magar',
+  // Emotional / lyrical vocabulary
+  'दिल': 'dil',
+  'प्यार': 'pyaar',
+  'इश्क़': 'ishq', 'इश्क': 'ishq',
+  'मोहब्बत': 'mohabbat',
+  'ज़िंदगी': 'zindagi','जिंदगी': 'zindagi',
+  'ख़ुशी': 'khushi','खुशी': 'khushi',
+  'ग़म': 'gham',  'गम': 'gham',
+  'याद': 'yaad',  'बात': 'baat',  'साथ': 'saath', 'रात': 'raat',
+  'वक़्त': 'waqt','वक्त': 'waqt',
+  'ख़्वाब': 'khwab','ख्वाब': 'khwab',
+  'आवाज़': 'awaaz','आवाज': 'awaaz',
+  'दुनिया': 'duniya','रास्ता': 'raasta',
+  'मंज़िल': 'manzil','मंजिल': 'manzil',
+  'सफ़र': 'safar','सफर': 'safar',
+  'ख़ुदा': 'khuda','खुदा': 'khuda',
+  'ख़्वाहिश': 'khwahish','ख्वाहिश': 'khwahish',
+  'आँख': 'aankh','आंख': 'aankh',
+  'आँसू': 'aansu','आंसू': 'aansu',
+  'ख़याल': 'khayal','खयाल': 'khayal',
+  'ख़ुद': 'khud','खुद': 'khud',
+  'जान': 'jaan', 'दर्द': 'dard',
+  'उम्मीद': 'ummeed','उमीद': 'ummeed',
+  'इंतज़ार': 'intezaar','इंतजार': 'intezaar',
+  'एहसास': 'ehsaas','अहसास': 'ehsaas',
+  'खुशबू': 'khushbu','ख़ुशबू': 'khushbu',
+  'रूह': 'rooh',
+  // Common verbs (root forms)
+  'आना': 'aana',  'जाना': 'jaana','होना': 'hona', 'करना': 'karna',
+  'देखना': 'dekhna','सुनना': 'sunna','मिलना': 'milna',
+  'रहना': 'rehna','चलना': 'chalna','बोलना': 'bolna',
+  'समझना': 'samajhna','सोचना': 'sochna','छोड़ना': 'chhodna',
+};
+
+// After generation, walk every token and normalise its roman against ROMAN_LOOKUP.
+// Any token that changes also patches the parent line's roman string via whole-word
+// replacement so the main lyrics display stays in sync.
+function normalizeRomanization(lesson: { sections: Array<{ lines: Array<{ text: { roman: string }; tokens: Array<{ surface: string; roman: string }> }> }> }): void {
+  for (const section of lesson.sections) {
+    for (const line of section.lines) {
+      const replacements: Array<{ from: string; to: string }> = [];
+
+      for (const token of line.tokens) {
+        const canonical = ROMAN_LOOKUP[token.surface];
+        if (canonical && canonical !== token.roman) {
+          replacements.push({ from: token.roman, to: canonical });
+          token.roman = canonical;
+        }
+      }
+
+      if (replacements.length === 0) continue;
+
+      let lineRoman = line.text.roman;
+      for (const { from, to } of replacements) {
+        if (!from) continue;
+        const escaped = from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        lineRoman = lineRoman.replace(new RegExp(`\\b${escaped}\\b`, 'gi'), to);
+      }
+      line.text.roman = lineRoman;
+    }
+  }
+}
+
+const ROMANIZATION_TABLE = `ROMANIZATION CANONICAL TABLE — use EXACTLY these spellings, never deviate:
+मैं (I)        → main        में (in/inside)  → mein        है            → hai          हैं           → hain
+नहीं           → nahin       हाँ              → haan        भी            → bhi          तो            → to
+और             → aur         पर               → par         जो            → jo           कोई           → koi
+यह             → yeh         वह/वो            → woh         यहाँ          → yahan        वहाँ          → wahan
+क्या           → kya         तुम              → tum         मुझे          → mujhe        तुझे          → tujhe
+हमें           → hamein      तुम्हें          → tumhein     मेरा/मेरी/मेरे → mera/meri/mere
+तेरा/तेरी/तेरे → tera/teri/tere               हमारा/हमारी  → hamara/hamari
+दिल            → dil         प्यार            → pyaar       इश्क़          → ishq         मोहब्बत      → mohabbat
+ज़िंदगी        → zindagi     ख़ुशी            → khushi      ग़म            → gham         याद           → yaad
+बात            → baat        साथ              → saath       रात            → raat         वक़्त         → waqt
+ख़्वाब         → khwab       आवाज़            → awaaz       दुनिया         → duniya       रास्ता        → raasta
+मंज़िल         → manzil      सफ़र             → safar       ख़ुदा          → khuda        ख़्वाहिश      → khwahish
+हो             → ho          हूँ              → hoon        था/थी/थे      → tha/thi/the  हुआ/हुई      → hua/hui
+आना            → aana        जाना             → jaana       होना           → hona         करना          → karna
+लेकिन          → lekin       मगर              → magar       अब             → ab           जब            → jab
+आँख            → aankh       आँसू             → aansu       ख़याल          → khayal       ख़ुद           → khud
+कुछ            → kuch        कभी              → kabhi       सब             → sab          हमेशा         → hamesha`;
 
 const BASE_SYSTEM_PROMPT = `You are an expert language-learning content creator for South Asian songs.
 
@@ -132,6 +268,8 @@ AUTO-DETECT the primary language from the lyrics and output in the correct NATIV
 - Bangla/Bengali → Bengali script, iso: "bn", script: "Bengali"
 - Ambiguous Hindustani → default to Devanagari (Hindi)
 
+${ROMANIZATION_TABLE}
+
 For EVERY lyric line produce:
 
 1. target — the line in the CORRECT NATIVE SCRIPT
@@ -140,18 +278,8 @@ For EVERY lyric line produce:
    - NEVER copy Roman text into the target field
 
 2. roman — consistent beginner-friendly Latin transliteration, NO diacritics (no ā ī ū ṇ etc.)
-
-3. wordByWord — token-order English gloss
-   - lowercase, space-separated, intentionally ungrammatical
-   - aligned to the native word order, not English order
-   - compact and literal — do NOT add interpretation or emotion
-   - include particles (hi, se, ko, ab, nahin, bhi, jo) as separate glosses
-
-4. tokens — per-word breakdown for flashcard learning
-   - id: "t001", "t002", ... (restart per line)
-   - surface: exact substring from the target line
-   - roman: romanization of that token (no diacritics)
-   - gloss: short English meaning (1–4 words)
+   - MUST follow the canonical table above for every word that appears in it
+   - Apply the same canonical spelling consistently across every line of the song
 
 STRUCTURE:
 - schemaVersion: "1.0.0"
@@ -162,7 +290,28 @@ CRITICAL RULES:
 - Exactly one output line per input lyric line — do NOT merge or split
 - Remove section labels ([Verse 1], [Chorus], etc.) and credits — process only lyric lines
 - Keep original line order
-- Romanization must be consistent across the whole song
+- Romanization must be consistent across the whole song — same word, same spelling, every time
+- Return ONLY the JSON matching the schema`;
+
+const TOKEN_SYSTEM_PROMPT = `You are an expert South Asian linguistics educator creating per-word breakdowns for song lyrics.
+
+You are given all lines of a song (lineId | native script | romanization | word-by-word gloss).
+Produce a tokens array for EVERY line.
+
+${ROMANIZATION_TABLE}
+
+For each token produce SIX fields:
+- id: "t001", "t002", ... (restart per line)
+- surface: exact substring from the native script line
+- roman: romanization of that token — follow canonical table, no diacritics
+- gloss: short English meaning (1–4 words)
+- definition: learner-focused lexical entry. Include part of speech, core meaning (1–2 sentences), a register/origin note only if genuinely useful (e.g. Persian, Sanskrit, Urdu literary), native usage insight explaining how speakers actually use the word especially where it differs from the English gloss, and optionally a short common collocation. Teach the word as a living part of the language — prioritize nuance, semantic range, and what would surprise a learner. 3–6 sentences. Do not reference this song or lyric. Avoid anatomical descriptions, encyclopedic detail, or overly formal language.
+- spectrum: Nearby synonyms/alternatives a learner may encounter. Learner-oriented, compact, comparison-based. Short contrast patterns, max 12 words per alternative. Roman script only — no native script characters. Use "" only if no meaningful alternatives exist.
+- songContext: Single concise sentence, max 15 words. Explain why THIS word was chosen in this lyric — its tone, imagery, or emotional effect. Do not restate the gloss or spectrum. For grammatical particles (ka, ki, ke, se, ne, ko, bhi, hi, to, na, etc.), give a concise learner-focused grammar note instead.
+
+RULES:
+- Every word in the line must have exactly one token (including particles)
+- surface must be an exact substring of the native script target
 - Return ONLY the JSON matching the schema`;
 
 const TRANSLATION_HIERARCHY = `TRANSLATION HIERARCHY
@@ -179,6 +328,13 @@ Use adjacent lines for semantic interpretation.
 Do NOT force every individual line into a fully standalone English thought if the original line is fragmentary.
 Preserve fragmentary structure when appropriate.`;
 
+const PUNJABI_VOCATIVE_HINT = `PUNJABI VOCATIVES — apply when translating Punjabi lyrics:
+"ni" and "ve" are vocative/discourse particles addressing the listener — they are NOT negation words.
+  ni → addresses a female companion ("O [girl]", or omit gracefully in English)
+  ve → addresses a male companion ("O [man]", or omit gracefully in English)
+  sajna → beloved (used as direct address: "O beloved")
+Example: "ni chann dhalna" = O [girl], the moon is setting — NOT "no, the moon sets" or "O moon, set".`;
+
 function makeDirectPrompt(): string {
   return `You are a precise linguistic translator for South Asian songs.
 
@@ -190,6 +346,8 @@ For each line (lineId | native script | romanization), produce a DIRECT English 
 - Fragments are fine if the original is fragmentary
 - For repeated lines: direct MUST be identical across all repeats
 - Never leave South Asian words untranslated
+
+${PUNJABI_VOCATIVE_HINT}
 
 ${FRAGMENT_NOTE}
 
@@ -206,6 +364,43 @@ For each line (lineId | native script | romanization), produce a NATURAL English
 - NOT overly literal; light paraphrase is fine for fluency
 - Must remain semantically equivalent to direct — same meaning, better flow
 - For repeated lines: natural MAY vary slightly in phrasing but never in meaning
+- May smooth English and clarify implied meaning, but MUST NOT introduce new actors, locations, emotions, intentions, relationships, or imagery that do not exist in the original lyric
+- May improve fluency and readability, but must stay as close as possible to the original meaning
+- MUST NOT introduce new tense, certainty, emphasis, time references, motivations, or emotional conclusions that are not explicitly present in the lyric
+- MUST NOT introduce new tense, certainty, frequency, emphasis, emotional conclusions, or implied facts not explicitly present in the lyric
+
+FIDELITY CONSTRAINTS — BAD/GOOD EXAMPLES:
+These are the most common errors. Treat each as a hard rule.
+
+1. No tense shifts — if the original is present tense, stay present tense:
+   BAD: "I was standing here" (added past)
+   GOOD: "I am standing here"
+
+2. No frequency additions — do not add "never", "always", "ever", "still" unless the original says so:
+   BAD: "Where were they, never to return"
+   GOOD: "Where did they go"
+
+3. No emphasis additions — do not add "really", "so", "such", "truly", "completely":
+   BAD: "You were really there"
+   GOOD: "You were there"
+
+4. No invented adjectives — do not add descriptors not in the original:
+   BAD: "A strange beauty" (original: "a beauty")
+   GOOD: "A beauty"
+
+5. No meaning substitution — translate the actual word, not a poetic synonym:
+   BAD: "I was bewitched" (for दीवाना = crazy/devoted)
+   GOOD: "I was lost in you" or "I was devoted"
+   BAD: "I admit" (for माना = granted / even if so)
+   GOOD: "Granted" or "Even so"
+
+6. No new time references — do not add "for a while", "for a moment", "still":
+   BAD: "Stay with me for a while" (original: "stay")
+   GOOD: "Stay with me"
+
+7. No certainty shifts — do not turn questions or uncertainty into statements:
+   BAD: "They were never there" (original asks: "where were they?")
+   GOOD: "Where were they"
 
 GRAMMATICAL INDEPENDENCE — CRITICAL:
 Each line's translation must read as a grammatically self-contained English lyric line.
@@ -258,9 +453,10 @@ async function callOpenAI<T>(
   env: Env,
   messages: { role: 'system' | 'user'; content: string }[],
   schema: object,
-  schemaName: string
+  schemaName: string,
+  modelOverride?: string
 ): Promise<{ result: T; promptTokens: number; completionTokens: number }> {
-  const model = env.OPENAI_MODEL || DEFAULT_MODEL;
+  const model = modelOverride ?? env.OPENAI_MODEL ?? DEFAULT_MODEL;
   const body: OpenAIRequest = {
     model,
     messages,
@@ -270,6 +466,7 @@ async function callOpenAI<T>(
     },
   };
 
+  const t0 = Date.now();
   const response = await fetch(OPENAI_API_URL, {
     method: 'POST',
     headers: {
@@ -290,6 +487,9 @@ async function callOpenAI<T>(
   if (choice.message.refusal) throw new Error(`OpenAI refused: ${choice.message.refusal}`);
   if (!choice.message.content) throw new Error('No content from OpenAI');
 
+  const ms = Date.now() - t0;
+  console.log(`[openai:${schemaName}] ${ms}ms | prompt=${data.usage?.prompt_tokens ?? 0} completion=${data.usage?.completion_tokens ?? 0}`);
+
   return {
     result: JSON.parse(choice.message.content) as T,
     promptTokens: data.usage?.prompt_tokens ?? 0,
@@ -309,8 +509,7 @@ type BaseLyricLesson = Omit<LyricLesson, 'sections'> & {
     lines: Array<{
       lineId: string;
       order: number;
-      text: { target: string; roman: string; wordByWord: string };
-      tokens: LyricLine['tokens'];
+      text: { target: string; roman: string };
     }>;
   }>;
 };
@@ -329,7 +528,7 @@ async function generateBase(
   if (titleHint) userPrompt += `Title hint: ${titleHint}\n`;
   if (artistHint) userPrompt += `Artist hint: ${artistHint}\n`;
   if (lessonId) userPrompt += `Use lessonId: ${lessonId}\n`;
-  userPrompt += '\nDetect the language, produce target (native script), roman, wordByWord, and tokens for each line.';
+  userPrompt += '\nDetect the language, produce target (native script), roman, and wordByWord for each line.';
 
   const { result, promptTokens, completionTokens } = await callOpenAI<BaseLyricLesson>(
     env,
@@ -341,7 +540,6 @@ async function generateBase(
     'lyric_lesson_base'
   );
 
-  console.log(`[base] ${promptTokens}+${completionTokens} tokens`);
   return { base: result, promptTokens, completionTokens };
 }
 
@@ -388,10 +586,47 @@ async function generateTranslations(
     `translation_${type}`
   );
 
-  console.log(`[${type}] ${promptTokens}+${completionTokens} tokens`);
 
   const map = new Map<string, string>();
   for (const l of result.lines) map.set(l.lineId, l.translation);
+  return { map, promptTokens, completionTokens };
+}
+
+// ============================================================================
+// Phase 2c: token call
+// ============================================================================
+
+async function generateTokens(
+  env: Env,
+  lines: FlatLine[],
+  titleHint?: string,
+  artistHint?: string
+): Promise<{ map: Map<string, import('./types').LyricToken[]>; promptTokens: number; completionTokens: number }> {
+  const lineTable = lines
+    .map(l => `${l.lineId} | ${l.target} | ${l.roman}`)
+    .join('\n');
+
+  let userPrompt = '';
+  if (titleHint || artistHint) {
+    userPrompt += `Song: "${titleHint ?? ''}"${artistHint ? ` by ${artistHint}` : ''}\n\n`;
+  }
+  userPrompt += `Lines (lineId | native script | romanization):\n${lineTable}\n\n`;
+  userPrompt += 'Produce tokens for every line.';
+
+  const { result, promptTokens, completionTokens } = await callOpenAI<{ lines: { lineId: string; tokens: import('./types').LyricToken[] }[] }>(
+    env,
+    [
+      { role: 'system', content: TOKEN_SYSTEM_PROMPT },
+      { role: 'user', content: userPrompt },
+    ],
+    TOKEN_SCHEMA,
+    'tokens',
+    'gpt-4o'
+  );
+
+
+  const map = new Map<string, import('./types').LyricToken[]>();
+  for (const l of result.lines) map.set(l.lineId, l.tokens);
   return { map, promptTokens, completionTokens };
 }
 
@@ -411,7 +646,7 @@ export async function generateLyricLesson(
 ): Promise<LyricLessonResult> {
   if (!env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not set');
 
-  // Phase 1: structure + linguistic analysis
+  // Phase 1: structure + native script + roman
   const { base, promptTokens: p1, completionTokens: c1 } = await generateBase(
     env, rawLyrics, titleHint, artistHint, lessonId, feedback
   );
@@ -421,34 +656,42 @@ export async function generateLyricLesson(
     s.lines.map(l => ({ lineId: l.lineId, target: l.text.target, roman: l.text.roman }))
   );
 
-  // Phase 2: parallel translation calls
+  // Phase 2: direct + natural + tokens all in parallel
   const [
     { map: directMap, promptTokens: p2d, completionTokens: c2d },
     { map: naturalMap, promptTokens: p2n, completionTokens: c2n },
+    { map: tokenMap,   promptTokens: p2t, completionTokens: c2t },
   ] = await Promise.all([
     generateTranslations(env, flatLines, 'direct', titleHint, artistHint),
     generateTranslations(env, flatLines, 'natural', titleHint, artistHint),
+    generateTokens(env, flatLines, titleHint, artistHint),
   ]);
 
-  // Merge translations into full lesson
+  // Merge everything into the full lesson — derive wordByWord from token glosses
   const lesson: LyricLesson = {
     ...base,
     sections: base.sections.map(section => ({
       ...section,
-      lines: section.lines.map(line => ({
-        ...line,
-        text: {
-          ...line.text,
-          direct: directMap.get(line.lineId) ?? '',
-          natural: naturalMap.get(line.lineId) ?? '',
-        },
-        tokens: line.tokens,
-      })),
+      lines: section.lines.map(line => {
+        const tokens = tokenMap.get(line.lineId) ?? [];
+        return {
+          ...line,
+          text: {
+            ...line.text,
+            wordByWord: tokens.map(t => t.gloss).join(' '),
+            direct:     directMap.get(line.lineId)  ?? '',
+            natural:    naturalMap.get(line.lineId) ?? '',
+          },
+          tokens,
+        };
+      }),
     })),
   };
 
-  const totalPrompt = p1 + p2d + p2n;
-  const totalCompletion = c1 + c2d + c2n;
+  normalizeRomanization(lesson);
+
+  const totalPrompt = p1 + p2d + p2n + p2t;
+  const totalCompletion = c1 + c2d + c2n + c2t;
   const estimatedCostUSD = calculateCost(totalPrompt, totalCompletion);
 
   console.log(`[generateLyricLesson] total ~$${estimatedCostUSD.toFixed(4)}`);
@@ -480,12 +723,15 @@ const LINE_RETRANSLATE_SCHEMA = {
       items: {
         type: 'object',
         properties: {
-          id:      { type: 'string' },
-          surface: { type: 'string' },
-          roman:   { type: 'string' },
-          gloss:   { type: 'string' },
+          id:          { type: 'string' },
+          surface:     { type: 'string' },
+          roman:       { type: 'string' },
+          gloss:       { type: 'string' },
+          definition:  { type: 'string' },
+          spectrum:    { type: 'string' },
+          songContext: { type: 'string' },
         },
-        required: ['id', 'surface', 'roman', 'gloss'],
+        required: ['id', 'surface', 'roman', 'gloss', 'definition', 'spectrum', 'songContext'],
         additionalProperties: false,
       },
     },
@@ -515,11 +761,18 @@ export async function retranslateLine(
 You are given all lines of a song for context, with one line marked as TARGET.
 Produce translations ONLY for the TARGET line.
 
+${ROMANIZATION_TABLE}
+
 Output fields:
-- roman: beginner-friendly Latin transliteration, no diacritics
+- roman: beginner-friendly Latin transliteration, no diacritics — follow canonical table
 - wordByWord: token-order English gloss, intentionally ungrammatical, lowercase, compact
 - direct: literal + grammatical English, plain and neutral
 - natural: emotionally faithful, fluent, conversational English
+- tokens: per-word educational breakdown of the TARGET line (7 fields each):
+  · id: t001, t002, ... · surface · roman (follow canonical table) · gloss (1–4 words)
+  · definition: textbook dictionary entry — part of speech, full core meaning, origin/register note, how native speakers use it. 2–4 sentences. General lexical entry, not specific to this song.
+  · spectrum: learner-oriented, compact, comparison-based. Short contrast patterns, max 12 words per alternative. Use "" only if no meaningful alternatives exist. Roman script only — no native script characters.
+  · songContext: single concise sentence, max 15 words. Explain why this word was chosen in this lyric. Do not restate the gloss or spectrum. For common grammatical particles (ka, ki, ke, se, ne, ko, bhi, hi, to, na, etc.), give a concise learner-focused grammar note instead of leaving empty when helpful.
 
 ${TRANSLATION_HIERARCHY}
 
@@ -533,8 +786,18 @@ ${FRAGMENT_NOTE}
 Rules:
 - direct and natural must be fully English — no Devanagari/Arabic/Bengali characters
 - direct and natural must be meaningfully different from each other
+- natural may smooth English and clarify implied meaning, but MUST NOT introduce new actors, locations, emotions, intentions, relationships, or imagery that do not exist in the original lyric
+- natural may improve fluency and readability, but must stay as close as possible to the original meaning
+- natural MUST NOT introduce new tense, certainty, emphasis, time references, motivations, or emotional conclusions that are not explicitly present in the lyric
+- natural MUST NOT introduce new tense, certainty, frequency, emphasis, emotional conclusions, or implied facts not explicitly present in the lyric
+- No tense shifts: present stays present, question stays question — BAD: "was standing" for present; GOOD: "am standing"
+- No frequency additions: do not add "never", "always", "ever" unless the original says so
+- No emphasis additions: do not add "really", "so", "truly", "completely"
+- No invented adjectives or descriptors not present in the original
+- No meaning substitution: translate the actual word — BAD: "bewitched" for दीवाना; GOOD: "devoted" or "lost in you"; BAD: "I admit" for माना; GOOD: "Granted" or "Even so"
+- No new time references: do not add "for a while", "for a moment", "still" unless the original says so
+- No certainty shifts: do not turn questions or uncertainty into statements
 - Never leave South Asian words untranslated
-- tokens: per-word breakdown of the TARGET line only (id: t001..., surface, roman, gloss)
 - Return ONLY the JSON matching the schema`;
 
   const contextTable = allLines

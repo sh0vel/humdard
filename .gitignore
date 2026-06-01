@@ -40,3 +40,6 @@ wrangler.toml.local
 # Misc
 .cache/
 .temp/
+
+# Generated song data
+api/songs/

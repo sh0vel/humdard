@@ -66,9 +66,8 @@ const BASE_LESSON_SCHEMA = {
                   properties: {
                     target: { type: 'string' },
                     roman: { type: 'string' },
-                    wordByWord: { type: 'string' },
                   },
-                  required: ['target', 'roman', 'wordByWord'],
+                  required: ['target', 'roman'],
                   additionalProperties: false,
                 },
               },
@@ -280,12 +279,6 @@ For EVERY lyric line produce:
 2. roman — consistent beginner-friendly Latin transliteration, NO diacritics (no ā ī ū ṇ etc.)
    - MUST follow the canonical table above for every word that appears in it
    - Apply the same canonical spelling consistently across every line of the song
-
-3. wordByWord — token-order English gloss
-   - lowercase, space-separated, intentionally ungrammatical
-   - aligned to the native word order, not English order
-   - compact and literal — do NOT add interpretation or emotion
-   - include particles (hi, se, ko, ab, nahin, bhi, jo) as separate glosses
 
 STRUCTURE:
 - schemaVersion: "1.0.0"
@@ -500,7 +493,7 @@ type BaseLyricLesson = Omit<LyricLesson, 'sections'> & {
     lines: Array<{
       lineId: string;
       order: number;
-      text: { target: string; roman: string; wordByWord: string };
+      text: { target: string; roman: string };
     }>;
   }>;
 };
@@ -589,25 +582,21 @@ async function generateTranslations(
 // Phase 2c: token call
 // ============================================================================
 
-interface FlatLineWithGloss extends FlatLine {
-  wordByWord: string;
-}
-
 async function generateTokens(
   env: Env,
-  lines: FlatLineWithGloss[],
+  lines: FlatLine[],
   titleHint?: string,
   artistHint?: string
 ): Promise<{ map: Map<string, import('./types').LyricToken[]>; promptTokens: number; completionTokens: number }> {
   const lineTable = lines
-    .map(l => `${l.lineId} | ${l.target} | ${l.roman} | ${l.wordByWord}`)
+    .map(l => `${l.lineId} | ${l.target} | ${l.roman}`)
     .join('\n');
 
   let userPrompt = '';
   if (titleHint || artistHint) {
     userPrompt += `Song: "${titleHint ?? ''}"${artistHint ? ` by ${artistHint}` : ''}\n\n`;
   }
-  userPrompt += `Lines (lineId | native script | romanization | word-by-word):\n${lineTable}\n\n`;
+  userPrompt += `Lines (lineId | native script | romanization):\n${lineTable}\n\n`;
   userPrompt += 'Produce tokens for every line.';
 
   const { result, promptTokens, completionTokens } = await callOpenAI<{ lines: { lineId: string; tokens: import('./types').LyricToken[] }[] }>(
@@ -643,7 +632,7 @@ export async function generateLyricLesson(
 ): Promise<LyricLessonResult> {
   if (!env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not set');
 
-  // Phase 1: structure + native script + roman + wordByWord
+  // Phase 1: structure + native script + roman
   const { base, promptTokens: p1, completionTokens: c1 } = await generateBase(
     env, rawLyrics, titleHint, artistHint, lessonId, feedback
   );
@@ -651,9 +640,6 @@ export async function generateLyricLesson(
   // Flatten lines for Phase 2
   const flatLines: FlatLine[] = base.sections.flatMap(s =>
     s.lines.map(l => ({ lineId: l.lineId, target: l.text.target, roman: l.text.roman }))
-  );
-  const flatLinesWithGloss: FlatLineWithGloss[] = base.sections.flatMap(s =>
-    s.lines.map(l => ({ lineId: l.lineId, target: l.text.target, roman: l.text.roman, wordByWord: l.text.wordByWord }))
   );
 
   // Phase 2: direct + natural + tokens all in parallel
@@ -664,23 +650,27 @@ export async function generateLyricLesson(
   ] = await Promise.all([
     generateTranslations(env, flatLines, 'direct', titleHint, artistHint),
     generateTranslations(env, flatLines, 'natural', titleHint, artistHint),
-    generateTokens(env, flatLinesWithGloss, titleHint, artistHint),
+    generateTokens(env, flatLines, titleHint, artistHint),
   ]);
 
-  // Merge everything into the full lesson
+  // Merge everything into the full lesson — derive wordByWord from token glosses
   const lesson: LyricLesson = {
     ...base,
     sections: base.sections.map(section => ({
       ...section,
-      lines: section.lines.map(line => ({
-        ...line,
-        text: {
-          ...line.text,
-          direct:  directMap.get(line.lineId)  ?? '',
-          natural: naturalMap.get(line.lineId) ?? '',
-        },
-        tokens: tokenMap.get(line.lineId) ?? [],
-      })),
+      lines: section.lines.map(line => {
+        const tokens = tokenMap.get(line.lineId) ?? [];
+        return {
+          ...line,
+          text: {
+            ...line.text,
+            wordByWord: tokens.map(t => t.gloss).join(' '),
+            direct:     directMap.get(line.lineId)  ?? '',
+            natural:    naturalMap.get(line.lineId) ?? '',
+          },
+          tokens,
+        };
+      }),
     })),
   };
 

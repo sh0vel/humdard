@@ -9,7 +9,7 @@
 import { Env, LyricLesson, OpenAIRequest, OpenAIResponse } from './types';
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
-const DEFAULT_MODEL = 'gpt-5.5';
+const DEFAULT_MODEL = 'gpt-4o';
 
 // ============================================================================
 // Schemas
@@ -328,6 +328,13 @@ Use adjacent lines for semantic interpretation.
 Do NOT force every individual line into a fully standalone English thought if the original line is fragmentary.
 Preserve fragmentary structure when appropriate.`;
 
+const PUNJABI_VOCATIVE_HINT = `PUNJABI VOCATIVES — apply when translating Punjabi lyrics:
+"ni" and "ve" are vocative/discourse particles addressing the listener — they are NOT negation words.
+  ni → addresses a female companion ("O [girl]", or omit gracefully in English)
+  ve → addresses a male companion ("O [man]", or omit gracefully in English)
+  sajna → beloved (used as direct address: "O beloved")
+Example: "ni chann dhalna" = O [girl], the moon is setting — NOT "no, the moon sets" or "O moon, set".`;
+
 function makeDirectPrompt(): string {
   return `You are a precise linguistic translator for South Asian songs.
 
@@ -339,6 +346,8 @@ For each line (lineId | native script | romanization), produce a DIRECT English 
 - Fragments are fine if the original is fragmentary
 - For repeated lines: direct MUST be identical across all repeats
 - Never leave South Asian words untranslated
+
+${PUNJABI_VOCATIVE_HINT}
 
 ${FRAGMENT_NOTE}
 

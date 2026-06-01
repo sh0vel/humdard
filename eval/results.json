@@ -1,0 +1,3090 @@
+{
+  "benchmark_version": "0.2",
+  "n_lines": 108,
+  "systems": {
+    "A": {
+      "desc": "gpt-4o baseline",
+      "translation_ms": 19062,
+      "overall_accuracy": 0.7129629629629629,
+      "by_category": {
+        "punjabi_vocative": {
+          "pass": 8,
+          "total": 15,
+          "accuracy": 0.5333333333333333
+        },
+        "urdu_vocabulary": {
+          "pass": 9,
+          "total": 12,
+          "accuracy": 0.75
+        },
+        "izafat": {
+          "pass": 9,
+          "total": 11,
+          "accuracy": 0.8181818181818182
+        },
+        "ambiguity_preservation": {
+          "pass": 10,
+          "total": 12,
+          "accuracy": 0.8333333333333334
+        },
+        "fragment_continuation": {
+          "pass": 8,
+          "total": 9,
+          "accuracy": 0.8888888888888888
+        },
+        "false_friend": {
+          "pass": 6,
+          "total": 9,
+          "accuracy": 0.6666666666666666
+        },
+        "control": {
+          "pass": 7,
+          "total": 7,
+          "accuracy": 1.0
+        },
+        "hindi_vocabulary": {
+          "pass": 7,
+          "total": 9,
+          "accuracy": 0.7777777777777778
+        },
+        "tense_mood": {
+          "pass": 0,
+          "total": 3,
+          "accuracy": 0.0
+        },
+        "bengali_vocabulary": {
+          "pass": 5,
+          "total": 8,
+          "accuracy": 0.625
+        },
+        "tamil_vocative": {
+          "pass": 2,
+          "total": 4,
+          "accuracy": 0.5
+        },
+        "tamil_vocabulary": {
+          "pass": 3,
+          "total": 3,
+          "accuracy": 1.0
+        },
+        "punjabi_vocabulary": {
+          "pass": 3,
+          "total": 6,
+          "accuracy": 0.5
+        }
+      },
+      "by_language": {
+        "Punjabi": {
+          "pass": 15,
+          "total": 26,
+          "accuracy": 0.5769230769230769
+        },
+        "Urdu": {
+          "pass": 20,
+          "total": 24,
+          "accuracy": 0.8333333333333334
+        },
+        "Hindi/Urdu": {
+          "pass": 13,
+          "total": 16,
+          "accuracy": 0.8125
+        },
+        "Hindi": {
+          "pass": 11,
+          "total": 18,
+          "accuracy": 0.6111111111111112
+        },
+        "Hindi/Urdu/Punjabi": {
+          "pass": 0,
+          "total": 1,
+          "accuracy": 0.0
+        },
+        "Hindi/Sanskrit": {
+          "pass": 1,
+          "total": 1,
+          "accuracy": 1.0
+        },
+        "Bengali": {
+          "pass": 10,
+          "total": 13,
+          "accuracy": 0.7692307692307693
+        },
+        "Tamil": {
+          "pass": 6,
+          "total": 8,
+          "accuracy": 0.75
+        },
+        "Urdu/Persian": {
+          "pass": 1,
+          "total": 1,
+          "accuracy": 1.0
+        }
+      },
+      "translations": {
+        "pv001": "Oh moon setting",
+        "pv002": "Oh, don't talk about separation",
+        "pv003": "Oh, I will return",
+        "pv004": "Oh, I will go with the ascetics",
+        "pv005": "Oh, what do I know, who am I",
+        "pv006": "How do I explain to the heart, oh beloved?",
+        "pv007": "Oh, the moon has gone mad",
+        "pv008": "Oh, the moon has risen in the sky",
+        "pv009": "Comes or doesn't come, my friend",
+        "pv010": "Oh beloved, why did you leave me",
+        "uv001": "A new extension",
+        "uv002": "Centuries are not enough for this love",
+        "uv003": "Where have you gone to fill the water from here",
+        "uv004": "Why have traces remained",
+        "uv005": "Night of separation",
+        "uv006": "The eyes cry, oh I will return",
+        "uv007": "Yes, how naive I am",
+        "uv008": "You are still adorned in my heart",
+        "iz001": "Of this restless heart",
+        "iz002": "Pain of the heart",
+        "iz003": "Night of separation",
+        "am001": "Centuries are not enough for this love",
+        "am002": "The heart could not rejoin",
+        "am003": "There are some words in these eyelashes",
+        "am004": "You just ask for it",
+        "fr001": "Of this restless heart",
+        "fr002": "Tears of my eyes",
+        "fr003": "And the stars in the sky",
+        "fr004": "So ask like this",
+        "ff001": "Eyes have flowed",
+        "ff002": "In an instant, I melt",
+        "ff003": "Listen to my talk",
+        "ff004": "O moon do descend",
+        "ff005": "Tears of my eyes",
+        "ct001": "O beloved, why did you leave me",
+        "ct002": "These nights are somewhat incomplete",
+        "ct003": "I will ask from God",
+        "ct004": "Yes, how naive I am",
+        "pv011": "My heart does not agree",
+        "pv012": "No, I am crazy",
+        "pv013": "O I have pleased my beloved",
+        "pv014": "Listen O beloved my talk",
+        "pv015": "Go O go, do not trouble me",
+        "hn001": "Where is peace for me",
+        "hn002": "As long as there is life",
+        "hn003": "Just one moment",
+        "hn004": "In love, you and me",
+        "hn005": "If only they were there",
+        "hn006": "Tomorrow may not come",
+        "hn007": "All around, only you are",
+        "hn008": "Oh heart, it is difficult",
+        "hn009": "Again the heart brought me",
+        "hn010": "Let the heart beat",
+        "hn011": "Joyful mystic",
+        "hn012": "What has passed is a past matter",
+        "hn013": "Rope of the eyes",
+        "hn014": "Life may go but the promise should not go",
+        "hn015": "If you meet",
+        "ug001": "Even if it's distress, come to hurt the heart",
+        "ug002": "Do not ask for the same love from me, my beloved",
+        "ug003": "There are other sorrows in the world besides love",
+        "ug004": "Thousands of desires such that every desire takes the breath away",
+        "ug005": "How could one not sacrifice their life for the beauty of the beloved",
+        "ug006": "Night of sorrow",
+        "ug007": "Soul of souls",
+        "ug008": "Pain of the heart",
+        "bn001": "The mind is not well",
+        "bn002": "Where is your mind",
+        "bn003": "I know, I surely know you",
+        "bn004": "The life desires but the eyes do not",
+        "bn005": "What does love mean",
+        "bn006": "If no one responds to your call",
+        "bn007": "Then walk alone",
+        "bn008": "Sky full of sun and stars",
+        "bn009": "Who are you to me",
+        "bn010": "across the river",
+        "bn011": "the taste of losing the path is there",
+        "bn012": "who goes, rowing the downstream river",
+        "ta001": "oh heart",
+        "ta002": "oh life",
+        "ta003": "oh wind, come",
+        "ta004": "what is love",
+        "ta005": "the time without you",
+        "ta006": "sky rain",
+        "ta007": "blooming and blooming",
+        "ta008": "oh dear art",
+        "pn001": "my Pasoori, my Pasoori",
+        "pn002": "set fire to helplessness",
+        "pn003": "my beloved's partings",
+        "pn004": "Bulha, how to know who I am",
+        "pn005": "how beautifully God has made you",
+        "pn006": "the tears of eyes do not cease",
+        "iz004": "moon-faced",
+        "iz005": "praise of the beloved's beauty is not possible",
+        "iz006": "face like a ghazal, face is the soul of ghazal",
+        "iz007": "sigh of the helpless one",
+        "am005": "that cannot be spoken",
+        "am006": "the heart breaks",
+        "am007": "evening happens",
+        "fr005": "when you will go away",
+        "fr006": "Those people who say",
+        "ff006": "Heart it is only, not stone and brick",
+        "ff007": "Eyes' strings",
+        "ff008": "If free time, then come",
+        "ff009": "Heart met heart",
+        "ct005": "You are mine",
+        "ct006": "Goodbye",
+        "ct007": "I love you"
+      },
+      "verdicts": {
+        "pv001": {
+          "lineId": "pv001",
+          "verdict": "FAIL",
+          "reason": "The model translation lacks the vocative 'O [girl]' and incorrectly suggests addressing the moon."
+        },
+        "pv002": {
+          "lineId": "pv002",
+          "verdict": "FAIL",
+          "reason": "The model translation omits the vocative 'O [girl], O [man]' and misses the emphatic component, creating ambiguity."
+        },
+        "pv003": {
+          "lineId": "pv003",
+          "verdict": "PASS",
+          "reason": "The translation of 'I will return' is semantically equivalent to 'I am turning back' in context."
+        },
+        "pv004": {
+          "lineId": "pv004",
+          "verdict": "PASS",
+          "reason": "The translation addresses the known failure correctly and remains semantically equivalent."
+        },
+        "pv005": {
+          "lineId": "pv005",
+          "verdict": "PASS",
+          "reason": "The slight wording adjustment is acceptable and retains meaning."
+        },
+        "pv006": {
+          "lineId": "pv006",
+          "verdict": "PASS",
+          "reason": "'Explain to the heart' is semantically equivalent to 'make the heart understand' in context."
+        },
+        "pv007": {
+          "lineId": "pv007",
+          "verdict": "PASS",
+          "reason": "The model translation retains the meaning of the original sentence."
+        },
+        "pv008": {
+          "lineId": "pv008",
+          "verdict": "PASS",
+          "reason": "The translation maintains the intended meaning and accurately conveys the message."
+        },
+        "pv009": {
+          "lineId": "pv009",
+          "verdict": "FAIL",
+          "reason": "The model translation introduces a new meaning not present in the original line."
+        },
+        "pv010": {
+          "lineId": "pv010",
+          "verdict": "PASS",
+          "reason": "The translation accurately conveys the original meaning."
+        },
+        "uv001": {
+          "lineId": "uv001",
+          "verdict": "PASS",
+          "reason": "'Extension' can be synonymous with 'respite' in this particular context."
+        },
+        "uv002": {
+          "lineId": "uv002",
+          "verdict": "PASS",
+          "reason": "The translation accurately reflects the original meaning."
+        },
+        "uv003": {
+          "lineId": "uv003",
+          "verdict": "FAIL",
+          "reason": "The model translation adds 'from', thus altering the locational context."
+        },
+        "uv004": {
+          "lineId": "uv004",
+          "verdict": "PASS",
+          "reason": "'Traces' and 'marks' are synonymous in this context."
+        },
+        "uv005": {
+          "lineId": "uv005",
+          "verdict": "PASS",
+          "reason": "The translation retains the meaning of 'separation' from the original line."
+        },
+        "uv006": {
+          "lineId": "uv006",
+          "verdict": "PASS",
+          "reason": "The translation is correct despite minor wording differences."
+        },
+        "uv007": {
+          "lineId": "uv007",
+          "verdict": "PASS",
+          "reason": "The model translation captures the intended meaning."
+        },
+        "uv008": {
+          "lineId": "uv008",
+          "verdict": "FAIL",
+          "reason": "'Adorned like that' implies a specific comparison absent in 'still adorned'."
+        },
+        "iz001": {
+          "lineId": "iz001",
+          "verdict": "PASS",
+          "reason": "The translation captures the intentional fragment as a noun phrase."
+        },
+        "iz002": {
+          "lineId": "iz002",
+          "verdict": "PASS",
+          "reason": "'Pain of the heart' is acceptable and retains the meaning of 'heartache.'"
+        },
+        "iz003": {
+          "lineId": "iz003",
+          "verdict": "PASS",
+          "reason": "The translation accurately conveys the intended meaning."
+        },
+        "am001": {
+          "lineId": "am001",
+          "verdict": "PASS",
+          "reason": "Accurately translated without adding any additional qualifiers."
+        },
+        "am002": {
+          "lineId": "am002",
+          "verdict": "PASS",
+          "reason": "The translation maintains abstraction by not specifying ownership of the heart."
+        },
+        "am003": {
+          "lineId": "am003",
+          "verdict": "PASS",
+          "reason": "The translation accurately reflects the original line without significant deviation."
+        },
+        "am004": {
+          "lineId": "am004",
+          "verdict": "FAIL",
+          "reason": "The model translation assumes an object 'for it,' changing the original's open-endedness."
+        },
+        "fr001": {
+          "lineId": "fr001",
+          "verdict": "PASS",
+          "reason": "The translation is correctly handled as a noun phrase without a forced predicate."
+        },
+        "fr002": {
+          "lineId": "fr002",
+          "verdict": "PASS",
+          "reason": "Correctly maintains the structure and intention of a noun phrase."
+        },
+        "fr003": {
+          "lineId": "fr003",
+          "verdict": "PASS",
+          "reason": "Correctly preserves the relative clause without forced completion."
+        },
+        "fr004": {
+          "lineId": "fr004",
+          "verdict": "PASS",
+          "reason": "Maintains the statement format and intended request method."
+        },
+        "ff001": {
+          "lineId": "ff001",
+          "verdict": "PASS",
+          "reason": "'Eyes have flowed' can be understood as 'are weeping,' maintaining semantic equivalence."
+        },
+        "ff002": {
+          "lineId": "ff002",
+          "verdict": "FAIL",
+          "reason": "The model translation 'In an instant, I melt' fails because 'melt' is not specifically implied as literal or emotional in the model, and 'instant' is a looser translation than 'moment', potentially losing nuance. Must ensure 'melt' is clearly emotional/literal as gold."
+        },
+        "ff003": {
+          "lineId": "ff003",
+          "verdict": "PASS",
+          "reason": "The translation 'Listen to my talk' is semantically equivalent to 'listen to my words' since both 'talk' and 'words' convey the idea of what is being spoken."
+        },
+        "ff004": {
+          "lineId": "ff004",
+          "verdict": "FAIL",
+          "reason": "The model translation 'O moon do descend' incorrectly addresses the moon, not the girl, and misrepresents 'setting' as 'descending', changing the interaction context."
+        },
+        "ff005": {
+          "lineId": "ff005",
+          "verdict": "PASS",
+          "reason": "The translation 'Tears of my eyes' is semantically equivalent to 'the tears of my eyes'. There is no meaningful difference."
+        },
+        "ct001": {
+          "lineId": "ct001",
+          "verdict": "PASS",
+          "reason": "The model translation is identical to the gold, with no errors present."
+        },
+        "ct002": {
+          "lineId": "ct002",
+          "verdict": "PASS",
+          "reason": "The model translation 'These nights are somewhat incomplete' is equivalent to 'all the nights are somewhat incomplete'. 'These' in context can imply 'all' of a specific set."
+        },
+        "ct003": {
+          "lineId": "ct003",
+          "verdict": "PASS",
+          "reason": "The model translation is identical to the gold, with no errors present."
+        },
+        "ct004": {
+          "lineId": "ct004",
+          "verdict": "PASS",
+          "reason": "The translation 'Yes, how naive I am' is semantically equivalent to 'yes, how naive I am'. No errors."
+        },
+        "pv011": {
+          "lineId": "pv011",
+          "verdict": "FAIL",
+          "reason": "The translation 'My heart does not agree' fails to address the vocative 'O [girl]' and loses part of the expressive context by omitting it."
+        },
+        "pv012": {
+          "lineId": "pv012",
+          "verdict": "FAIL",
+          "reason": "The translation 'No, I am crazy' misreads 'ni' as 'no' rather than a vocative 'O [girl]' and uses incorrect register for 'crazy'."
+        },
+        "pv013": {
+          "lineId": "pv013",
+          "verdict": "FAIL",
+          "reason": "The translation 'O I have pleased my beloved' both omits addressing 'O [man]' and misrepresents 'reconciled' as 'pleased', altering the relationship dynamic."
+        },
+        "pv014": {
+          "lineId": "pv014",
+          "verdict": "PASS",
+          "reason": "The translation 'Listen O beloved my talk' matches semantically with 'listen, O beloved, to my words'. Phrasing is slightly different but meaning is preserved."
+        },
+        "pv015": {
+          "lineId": "pv015",
+          "verdict": "FAIL",
+          "reason": "The translation 'Go O go, do not trouble me' lacks addressing 'O [man]' and only partially retains meaning with 'trouble' as a passable substitute for 'sata'."
+        },
+        "hn001": {
+          "lineId": "hn001",
+          "verdict": "PASS",
+          "reason": "The translation 'Where is peace for me' is semantically equivalent to 'where is there peace for me'. Both convey the absence of peace."
+        },
+        "hn002": {
+          "lineId": "hn002",
+          "verdict": "PASS",
+          "reason": "The translation 'As long as there is life' matches perfectly with the gold and avoids any known failures."
+        },
+        "hn003": {
+          "lineId": "hn003",
+          "verdict": "PASS",
+          "reason": "The translation 'Just one moment' is exact and conveys the same meaning as the gold."
+        },
+        "hn004": {
+          "lineId": "hn004",
+          "verdict": "PASS",
+          "reason": "Although 'love' lacks the nuance of 'passionate love', the translation 'In love, you and me' is close enough in context without introducing new meaning."
+        },
+        "hn005": {
+          "lineId": "hn005",
+          "verdict": "FAIL",
+          "reason": "'If only they were there' alters the spatial aspect of the translation, changing 'here' to 'there', which can significantly affect the intended meaning."
+        },
+        "hn006": {
+          "lineId": "hn006",
+          "verdict": "FAIL",
+          "reason": "'Tomorrow may not come' is overly specific and does not capture the condition 'whether or not there is a tomorrow', introducing definitive negativity."
+        },
+        "hn007": {
+          "lineId": "hn007",
+          "verdict": "PASS",
+          "reason": "The translation 'All around, only you are' conveys the same meaning as 'in every direction, only you exist', preserving the exclusivity and ubiquity within context."
+        },
+        "hn008": {
+          "lineId": "hn008",
+          "verdict": "PASS",
+          "reason": "The translation 'Oh heart, it is difficult' matches perfectly with the gold; both indicate emotional difficulty without casual misunderstandings of 'ae'."
+        },
+        "hn009": {
+          "lineId": "hn009",
+          "verdict": "PASS",
+          "reason": "The model's phrasing 'Again the heart brought me' conveys the same process of repetition as 'the heart brought me back again'."
+        },
+        "hn010": {
+          "lineId": "hn010",
+          "verdict": "PASS",
+          "reason": "The translation 'Let the heart beat' mirrors the gold directly, needing no possessives for ambiguity."
+        },
+        "hn011": {
+          "lineId": "hn011",
+          "verdict": "FAIL",
+          "reason": "The translation 'Joyful mystic' loses the depth and cultural context in 'intoxicated wandering mystic', a common specific failure of non-literal 'mast' and 'qalandar'."
+        },
+        "hn012": {
+          "lineId": "hn012",
+          "verdict": "PASS",
+          "reason": "The translation retains impartiality and structure, capturing the sense 'What has passed is a past matter' from its impersonal gold equivalent."
+        },
+        "hn013": {
+          "lineId": "hn013",
+          "verdict": "FAIL",
+          "reason": "'Rope of the eyes' incorrectly uses 'rope' which is a more rigid term with different connotations than 'string', altering nuances of delicacy and connection."
+        },
+        "hn014": {
+          "lineId": "hn014",
+          "verdict": "PASS",
+          "reason": "The translation 'Life may go but the promise should not go' captures the conditionality and determination of 'let life go but a promise must not go'."
+        },
+        "hn015": {
+          "lineId": "hn015",
+          "verdict": "FAIL",
+          "reason": "The model translation 'If you meet' does not convey the intended nuance of being 'found' or 'met', which are equally important in this subjunctive context."
+        },
+        "ug001": {
+          "lineId": "ug001",
+          "verdict": "PASS",
+          "reason": "Despite minor word differences, 'Even if it's distress, come to hurt the heart' captures the sense of 'even if it is bitterness, come to break the heart'."
+        },
+        "ug002": {
+          "lineId": "ug002",
+          "verdict": "FAIL",
+          "reason": "'Do not ask for the same love from me, my beloved' doesn't specify the 'first love' as intended, changing the sentimental reflection inherent in the request."
+        },
+        "ug003": {
+          "lineId": "ug003",
+          "verdict": "PASS",
+          "reason": "Model matches gold_direct accurately with no semantic errors."
+        },
+        "ug004": {
+          "lineId": "ug004",
+          "verdict": "PASS",
+          "reason": "Model conveys the sense of intense desire by using 'takes the breath away,' which is a valid interpretation of the original intent."
+        },
+        "ug005": {
+          "lineId": "ug005",
+          "verdict": "PASS",
+          "reason": "Model conveys the same rhetorical question of self-sacrifice for beauty, maintaining semantic equivalence."
+        },
+        "ug006": {
+          "lineId": "ug006",
+          "verdict": "PASS",
+          "reason": "Model accurately translates the phrase without any semantic error."
+        },
+        "ug007": {
+          "lineId": "ug007",
+          "verdict": "FAIL",
+          "reason": "Model changes 'soul of my soul' to 'soul of souls,' altering the specific personal relationship implied."
+        },
+        "ug008": {
+          "lineId": "ug008",
+          "verdict": "PASS",
+          "reason": "'Pain of the heart' is synonymous with 'heartache,' so the model translation is acceptable."
+        },
+        "bn001": {
+          "lineId": "bn001",
+          "verdict": "PASS",
+          "reason": "'The mind is not well' retains the meaning, as English must choose either mind or heart."
+        },
+        "bn002": {
+          "lineId": "bn002",
+          "verdict": "FAIL",
+          "reason": "Model translates 'mon' as 'mind' only, losing the dual aspect of heart/mind present in Bengali."
+        },
+        "bn003": {
+          "lineId": "bn003",
+          "verdict": "PASS",
+          "reason": "Model adds emphasis with 'surely know,' equivalent to the repeated assertion in gold_direct."
+        },
+        "bn004": {
+          "lineId": "bn004",
+          "verdict": "PASS",
+          "reason": "Model maintains the meaning of contrasting desires between soul and eyes accurately."
+        },
+        "bn005": {
+          "lineId": "bn005",
+          "verdict": "PASS",
+          "reason": "Translation is semantically equivalent to gold_direct."
+        },
+        "bn006": {
+          "lineId": "bn006",
+          "verdict": "PASS",
+          "reason": "Model translation is semantically equivalent to gold_direct."
+        },
+        "bn007": {
+          "lineId": "bn007",
+          "verdict": "PASS",
+          "reason": "Accurately conveys the meaning of walking alone without any semantic error."
+        },
+        "bn008": {
+          "lineId": "bn008",
+          "verdict": "PASS",
+          "reason": "Model conveys the description without any error."
+        },
+        "bn009": {
+          "lineId": "bn009",
+          "verdict": "PASS",
+          "reason": "Translation maintains the open-endedness of the question without additional context."
+        },
+        "bn010": {
+          "lineId": "bn010",
+          "verdict": "FAIL",
+          "reason": "'Across the river' could imply merely crossing, while 'on the other side' specifies a location beyond the river."
+        },
+        "bn011": {
+          "lineId": "bn011",
+          "verdict": "FAIL",
+          "reason": "Model fails to convey the emotional pleasure aspect by focusing on 'taste' rather than the broader 'pleasure'."
+        },
+        "bn012": {
+          "lineId": "bn012",
+          "verdict": "PASS",
+          "reason": "Translation accurately captures the rowing aspect and downstream direction."
+        },
+        "ta001": {
+          "lineId": "ta001",
+          "verdict": "PASS",
+          "reason": "Vocative 'oh heart' captures the intended meaning of address."
+        },
+        "ta002": {
+          "lineId": "ta002",
+          "verdict": "FAIL",
+          "reason": "'Oh life' loses the specific endearment because it omits 'my' or 'soul.'"
+        },
+        "ta003": {
+          "lineId": "ta003",
+          "verdict": "PASS",
+          "reason": "Accurate vocative translation maintaining original intent."
+        },
+        "ta004": {
+          "lineId": "ta004",
+          "verdict": "PASS",
+          "reason": "Model translation is semantically equivalent to gold_direct."
+        },
+        "ta005": {
+          "lineId": "ta005",
+          "verdict": "PASS",
+          "reason": "Translation maintains semantic equivalence with gold_direct."
+        },
+        "ta006": {
+          "lineId": "ta006",
+          "verdict": "PASS",
+          "reason": "Model translation matches gold_direct accurately."
+        },
+        "ta007": {
+          "lineId": "ta007",
+          "verdict": "PASS",
+          "reason": "Model translation captures the intended repetitive emphasis."
+        },
+        "ta008": {
+          "lineId": "ta008",
+          "verdict": "FAIL",
+          "reason": "Translation misinterprets 'kalai' as 'art' instead of 'graceful one,' altering the meaning."
+        },
+        "pn001": {
+          "lineId": "pn001",
+          "verdict": "FAIL",
+          "reason": "Model does not translate 'pasoori,' resulting in loss of the poetic meaning."
+        },
+        "pn002": {
+          "lineId": "pn002",
+          "verdict": "PASS",
+          "reason": "Model's translation accurately reflects the intent and meaning of the original."
+        },
+        "pn003": {
+          "lineId": "pn003",
+          "verdict": "FAIL",
+          "reason": "Model translation changes 'of separations' to merely 'partings,' missing the nuance of belonging."
+        },
+        "pn004": {
+          "lineId": "pn004",
+          "verdict": "PASS",
+          "reason": "Model translation retains the existential questioning effectively."
+        },
+        "pn005": {
+          "lineId": "pn005",
+          "verdict": "FAIL",
+          "reason": "The model translation adds 'beautifully' instead of 'beautiful,' which changes the meaning to an adverbial form, indicating how God made you rather than describing the beauty itself."
+        },
+        "pn006": {
+          "lineId": "pn006",
+          "verdict": "PASS",
+          "reason": "The translation 'do not cease' captures the same meaning as 'do not stop.'"
+        },
+        "iz004": {
+          "lineId": "iz004",
+          "verdict": "FAIL",
+          "reason": "'Moon-faced' changes the metaphor from 'moon-browed,' focusing on the face rather than the brow, which alters the imagery."
+        },
+        "iz005": {
+          "lineId": "iz005",
+          "verdict": "PASS",
+          "reason": "The model translation conveys the same meaning as the gold, just with different phrasing."
+        },
+        "iz006": {
+          "lineId": "iz006",
+          "verdict": "PASS",
+          "reason": "The model translation is semantically equivalent to the gold translation."
+        },
+        "iz007": {
+          "lineId": "iz007",
+          "verdict": "PASS",
+          "reason": "The translation 'sigh of the helpless one' is semantically equivalent to 'sigh of the helpless.'"
+        },
+        "am005": {
+          "lineId": "am005",
+          "verdict": "PASS",
+          "reason": "The model captures the same meaning with an equivalent passive structure."
+        },
+        "am006": {
+          "lineId": "am006",
+          "verdict": "PASS",
+          "reason": "The model translation matches the gold translation perfectly."
+        },
+        "am007": {
+          "lineId": "am007",
+          "verdict": "FAIL",
+          "reason": "'Evening happens' does not convey the same sense of occurrence or arrival as 'evening comes' or 'evening falls.'"
+        },
+        "fr005": {
+          "lineId": "fr005",
+          "verdict": "FAIL",
+          "reason": "'When you will go away' uses simple future rather than the perfective aspect in 'when you will have gone away,' failing to match the tense and aspect."
+        },
+        "fr006": {
+          "lineId": "fr006",
+          "verdict": "PASS",
+          "reason": "The model correctly translates the phrase capturing the same meaning as the gold translation."
+        },
+        "ff006": {
+          "lineId": "ff006",
+          "verdict": "PASS",
+          "reason": "The translation captures the same meaning as the gold translation, though worded differently."
+        },
+        "ff007": {
+          "lineId": "ff007",
+          "verdict": "PASS",
+          "reason": "The translation 'Eyes' strings' captures the same meaning as 'the strings of the eyes.'"
+        },
+        "ff008": {
+          "lineId": "ff008",
+          "verdict": "FAIL",
+          "reason": "'If free time, then come' is awkwardly phrased and misses the conditional sense conveyed by 'come if you have leisure.'"
+        },
+        "ff009": {
+          "lineId": "ff009",
+          "verdict": "PASS",
+          "reason": "The model translation matches the gold translation perfectly."
+        },
+        "ct005": {
+          "lineId": "ct005",
+          "verdict": "PASS",
+          "reason": "The model translation matches the gold translation perfectly."
+        },
+        "ct006": {
+          "lineId": "ct006",
+          "verdict": "PASS",
+          "reason": "The model translation captures the intended meaning accurately."
+        },
+        "ct007": {
+          "lineId": "ct007",
+          "verdict": "PASS",
+          "reason": "The model translation matches the gold translation perfectly."
+        }
+      }
+    },
+    "B": {
+      "desc": "gpt-4o + Punjabi hint",
+      "translation_ms": 15411,
+      "overall_accuracy": 0.75,
+      "by_category": {
+        "punjabi_vocative": {
+          "pass": 12,
+          "total": 15,
+          "accuracy": 0.8
+        },
+        "urdu_vocabulary": {
+          "pass": 8,
+          "total": 12,
+          "accuracy": 0.6666666666666666
+        },
+        "izafat": {
+          "pass": 9,
+          "total": 11,
+          "accuracy": 0.8181818181818182
+        },
+        "ambiguity_preservation": {
+          "pass": 11,
+          "total": 12,
+          "accuracy": 0.9166666666666666
+        },
+        "fragment_continuation": {
+          "pass": 7,
+          "total": 9,
+          "accuracy": 0.7777777777777778
+        },
+        "false_friend": {
+          "pass": 6,
+          "total": 9,
+          "accuracy": 0.6666666666666666
+        },
+        "control": {
+          "pass": 6,
+          "total": 7,
+          "accuracy": 0.8571428571428571
+        },
+        "hindi_vocabulary": {
+          "pass": 7,
+          "total": 9,
+          "accuracy": 0.7777777777777778
+        },
+        "tense_mood": {
+          "pass": 1,
+          "total": 3,
+          "accuracy": 0.3333333333333333
+        },
+        "bengali_vocabulary": {
+          "pass": 7,
+          "total": 8,
+          "accuracy": 0.875
+        },
+        "tamil_vocative": {
+          "pass": 2,
+          "total": 4,
+          "accuracy": 0.5
+        },
+        "tamil_vocabulary": {
+          "pass": 2,
+          "total": 3,
+          "accuracy": 0.6666666666666666
+        },
+        "punjabi_vocabulary": {
+          "pass": 3,
+          "total": 6,
+          "accuracy": 0.5
+        }
+      },
+      "by_language": {
+        "Punjabi": {
+          "pass": 19,
+          "total": 26,
+          "accuracy": 0.7307692307692307
+        },
+        "Urdu": {
+          "pass": 20,
+          "total": 24,
+          "accuracy": 0.8333333333333334
+        },
+        "Hindi/Urdu": {
+          "pass": 12,
+          "total": 16,
+          "accuracy": 0.75
+        },
+        "Hindi": {
+          "pass": 11,
+          "total": 18,
+          "accuracy": 0.6111111111111112
+        },
+        "Hindi/Urdu/Punjabi": {
+          "pass": 0,
+          "total": 1,
+          "accuracy": 0.0
+        },
+        "Hindi/Sanskrit": {
+          "pass": 1,
+          "total": 1,
+          "accuracy": 1.0
+        },
+        "Bengali": {
+          "pass": 12,
+          "total": 13,
+          "accuracy": 0.9230769230769231
+        },
+        "Tamil": {
+          "pass": 5,
+          "total": 8,
+          "accuracy": 0.625
+        },
+        "Urdu/Persian": {
+          "pass": 1,
+          "total": 1,
+          "accuracy": 1.0
+        }
+      },
+      "translations": {
+        "pv001": "O [girl], the moon is setting",
+        "pv002": "O [girl], do not speak of separation",
+        "pv003": "O [girl], I will return",
+        "pv004": "O [girl], I will go with the ascetics",
+        "pv005": "O [man], how should I know who I am",
+        "pv006": "How do I make the heart understand, O my beloved?",
+        "pv007": "O [girl], the moon has gone mad",
+        "pv008": "O [girl], the moon has risen to the sky",
+        "pv009": "Whether my beloved comes or not",
+        "pv010": "O beloved, why did you leave me",
+        "uv001": "A new respite",
+        "uv002": "Centuries are not enough for this love",
+        "uv003": "Where have you gone after filling water here",
+        "uv004": "Why have traces remained",
+        "uv005": "Night of separation",
+        "uv006": "Eyes are crying, O [girl], I will return",
+        "uv007": "Yes, how naive I am",
+        "uv008": "Still, you are adorned in my heart",
+        "iz001": "Of this restless heart",
+        "iz002": "Pain of the heart",
+        "iz003": "Night of separation",
+        "am001": "Centuries are not enough for this love",
+        "am002": "Hearts could not rejoin",
+        "am003": "There are some words in these eyelashes",
+        "am004": "Still, ask for it",
+        "fr001": "of this restless heart",
+        "fr002": "tears of my eyes",
+        "fr003": "and the stars in the sky",
+        "fr004": "just ask for it like this",
+        "ff001": "eyes keep flowing",
+        "ff002": "in a moment I will melt",
+        "ff003": "listen to me",
+        "ff004": "O [girl], the moon is setting",
+        "ff005": "tears of my eyes",
+        "ct001": "O beloved, why did you leave me",
+        "ct002": "these nights are incomplete",
+        "ct003": "I will ask from God",
+        "ct004": "yes, how naive I am",
+        "pv011": "my heart does not agree",
+        "pv012": "O [girl], I am crazy",
+        "pv013": "O [man], I have appeased my beloved",
+        "pv014": "listen, O beloved, to my words",
+        "pv015": "go, O [man], go; do not torment me",
+        "hn001": "where is peace for me",
+        "hn002": "as long as there is life",
+        "hn003": "just one moment",
+        "hn004": "in love, you and I",
+        "hn005": "I wish they were here",
+        "hn006": "tomorrow may not be",
+        "hn007": "everywhere, it is only you",
+        "hn008": "O heart, it is difficult",
+        "hn009": "Then the heart brought me back",
+        "hn010": "Let the heart beat",
+        "hn011": "Jolly mystic",
+        "hn012": "What has passed is gone",
+        "hn013": "The thread of eyes",
+        "hn014": "Life may go, but not the promise",
+        "hn015": "If I meet you",
+        "ug001": "Let it be anguish, still come to hurt the heart",
+        "ug002": "Don't ask from me the love as before, my beloved",
+        "ug003": "There are other sorrows in the world beside love",
+        "ug004": "Thousands of desires such that each wish takes life away",
+        "ug005": "Why not give life for the beloved's beauty",
+        "ug006": "Night of sorrow",
+        "ug007": "Beloved of beloved",
+        "ug008": "Pain of heart",
+        "bn001": "The mind is not well",
+        "bn002": "Where is your mind",
+        "bn003": "I know you, I know you",
+        "bn004": "The soul desires, the eyes do not",
+        "bn005": "What does love mean",
+        "bn006": "If no one comes hearing your call",
+        "bn007": "Then walk alone",
+        "bn008": "Sky full of sun and stars",
+        "bn009": "Who are you to me",
+        "bn010": "Across the river",
+        "bn011": "There is a taste in losing the path",
+        "bn012": "Who goes rowing the downstream river",
+        "ta001": "O heart",
+        "ta002": "O life",
+        "ta003": "O wind, come",
+        "ta004": "What is called love",
+        "ta005": "Time without you",
+        "ta006": "Sky rain",
+        "ta007": "Blooming blooming",
+        "ta008": "O eyes, O artistic one",
+        "pn001": "O girl, my Pasoori, my Pasoori",
+        "pn002": "Ignite the fire on compulsion",
+        "pn003": "O dear, of separations",
+        "pn004": "Bulha, what do I know who I am",
+        "pn005": "How beautiful God has made you",
+        "pn006": "The tears of the eyes do not stop",
+        "iz004": "Moon-faced",
+        "iz005": "Praising the beloved's beauty is not possible",
+        "iz006": "Face like a ghazal, face the soul of a ghazal",
+        "iz007": "Sigh of the helpless",
+        "am005": "What cannot be spoken",
+        "am006": "The heart breaks",
+        "am007": "The evening comes",
+        "fr005": "When you will go away",
+        "fr006": "Those people who say",
+        "ff006": "It is only a heart, not stone and brick",
+        "ff007": "Strings of the eyes",
+        "ff008": "Come if you have time",
+        "ff009": "The heart met the heart",
+        "ct005": "You are mine",
+        "ct006": "May God protect you",
+        "ct007": "I love you"
+      },
+      "verdicts": {
+        "pv001": {
+          "lineId": "pv001",
+          "verdict": "PASS",
+          "reason": "Model translation matches gold_direct exactly."
+        },
+        "pv002": {
+          "lineId": "pv002",
+          "verdict": "FAIL",
+          "reason": "Model translation omits 'O [man]' and changes the form from an address to a statement."
+        },
+        "pv003": {
+          "lineId": "pv003",
+          "verdict": "PASS",
+          "reason": "Model translation is semantically equivalent to gold_direct, 'I will return' is a minor variation of 'I am turning back'."
+        },
+        "pv004": {
+          "lineId": "pv004",
+          "verdict": "PASS",
+          "reason": "Model translation is semantically equivalent to gold_direct, 'ascetics' can be used interchangeably with 'mystics'."
+        },
+        "pv005": {
+          "lineId": "pv005",
+          "verdict": "PASS",
+          "reason": "'How should I know' is an acceptable variant of 'What do I know'."
+        },
+        "pv006": {
+          "lineId": "pv006",
+          "verdict": "PASS",
+          "reason": "The inclusion of 'my' is a minor wording difference and does not affect the semantic meaning."
+        },
+        "pv007": {
+          "lineId": "pv007",
+          "verdict": "PASS",
+          "reason": "Model translation matches gold_direct exactly."
+        },
+        "pv008": {
+          "lineId": "pv008",
+          "verdict": "PASS",
+          "reason": "'To the sky' is a minor wording difference from 'in the sky', doesn't change the meaning."
+        },
+        "pv009": {
+          "lineId": "pv009",
+          "verdict": "FAIL",
+          "reason": "Model translation changes the meaning completely from the gold_direct."
+        },
+        "pv010": {
+          "lineId": "pv010",
+          "verdict": "PASS",
+          "reason": "Model translation matches gold_direct exactly."
+        },
+        "uv001": {
+          "lineId": "uv001",
+          "verdict": "PASS",
+          "reason": "Model translation matches gold_direct exactly."
+        },
+        "uv002": {
+          "lineId": "uv002",
+          "verdict": "PASS",
+          "reason": "Model translation matches gold_direct exactly."
+        },
+        "uv003": {
+          "lineId": "uv003",
+          "verdict": "FAIL",
+          "reason": "Model translation adds 'after', which changes the meaning from gold_direct."
+        },
+        "uv004": {
+          "lineId": "uv004",
+          "verdict": "PASS",
+          "reason": "'Traces' is an acceptable synonym for 'marks'."
+        },
+        "uv005": {
+          "lineId": "uv005",
+          "verdict": "PASS",
+          "reason": "Model translation matches gold_direct exactly."
+        },
+        "uv006": {
+          "lineId": "uv006",
+          "verdict": "PASS",
+          "reason": "'I will return' is an acceptable variant of 'I am turning back'."
+        },
+        "uv007": {
+          "lineId": "uv007",
+          "verdict": "PASS",
+          "reason": "Model translation matches gold_direct exactly."
+        },
+        "uv008": {
+          "lineId": "uv008",
+          "verdict": "FAIL",
+          "reason": "Model translation changes the meaning by adding 'Still' and dropping 'like that'."
+        },
+        "iz001": {
+          "lineId": "iz001",
+          "verdict": "PASS",
+          "reason": "Model translation matches gold_direct exactly."
+        },
+        "iz002": {
+          "lineId": "iz002",
+          "verdict": "PASS",
+          "reason": "'Pain of the heart' is an acceptable variant of 'heartache'."
+        },
+        "iz003": {
+          "lineId": "iz003",
+          "verdict": "PASS",
+          "reason": "Model translation matches gold_direct exactly."
+        },
+        "am001": {
+          "lineId": "am001",
+          "verdict": "PASS",
+          "reason": "Model translation matches gold_direct exactly."
+        },
+        "am002": {
+          "lineId": "am002",
+          "verdict": "PASS",
+          "reason": "'Hearts' is a minor variation and does not fundamentally change the meaning."
+        },
+        "am003": {
+          "lineId": "am003",
+          "verdict": "PASS",
+          "reason": "'Eyelashes' is an acceptable interpretation of 'eyelids' in poetic language."
+        },
+        "am004": {
+          "lineId": "am004",
+          "verdict": "FAIL",
+          "reason": "Model translation adds 'for it', which changes the meaning from gold_direct."
+        },
+        "fr001": {
+          "lineId": "fr001",
+          "verdict": "PASS",
+          "reason": "Model translation matches gold_direct exactly."
+        },
+        "fr002": {
+          "lineId": "fr002",
+          "verdict": "PASS",
+          "reason": "Model translation matches gold_direct exactly."
+        },
+        "fr003": {
+          "lineId": "fr003",
+          "verdict": "PASS",
+          "reason": "Model translation matches gold_direct exactly."
+        },
+        "fr004": {
+          "lineId": "fr004",
+          "verdict": "FAIL",
+          "reason": "Model translation adds 'for it', which changes the meaning from gold_direct."
+        },
+        "ff001": {
+          "lineId": "ff001",
+          "verdict": "FAIL",
+          "reason": "Model translation changes meaning by saying 'keep flowing' instead of 'are weeping', which implies ongoing action rather than current state."
+        },
+        "ff002": {
+          "lineId": "ff002",
+          "verdict": "FAIL",
+          "reason": "The tense 'will melt' is incorrect; should be 'would melt'."
+        },
+        "ff003": {
+          "lineId": "ff003",
+          "verdict": "PASS",
+          "reason": "'Listen to me' is a common interpretation and can be considered equivalent to 'listen to my words' in context."
+        },
+        "ff004": {
+          "lineId": "ff004",
+          "verdict": "PASS",
+          "reason": "Translation matches the gold perfectly."
+        },
+        "ff005": {
+          "lineId": "ff005",
+          "verdict": "PASS",
+          "reason": "The translation is semantically equivalent with no missing content."
+        },
+        "ct001": {
+          "lineId": "ct001",
+          "verdict": "PASS",
+          "reason": "The translation matches the gold, no errors."
+        },
+        "ct002": {
+          "lineId": "ct002",
+          "verdict": "FAIL",
+          "reason": "The translation 'these nights are incomplete' misses 'all' and 'somewhat' from the gold, changing meaning."
+        },
+        "ct003": {
+          "lineId": "ct003",
+          "verdict": "PASS",
+          "reason": "The translation is exactly the same as the gold."
+        },
+        "ct004": {
+          "lineId": "ct004",
+          "verdict": "PASS",
+          "reason": "Translation is equivalent in meaning to the gold."
+        },
+        "pv011": {
+          "lineId": "pv011",
+          "verdict": "PASS",
+          "reason": "The model translation accurately captures the gold's meaning with vocative mid-sentence."
+        },
+        "pv012": {
+          "lineId": "pv012",
+          "verdict": "PASS",
+          "reason": "Translation matches gold, correctly using 'crazy'."
+        },
+        "pv013": {
+          "lineId": "pv013",
+          "verdict": "FAIL",
+          "reason": "The word 'appeased' is not equivalent to 'reconciled'."
+        },
+        "pv014": {
+          "lineId": "pv014",
+          "verdict": "PASS",
+          "reason": "Translation perfectly captures the meaning of the gold."
+        },
+        "pv015": {
+          "lineId": "pv015",
+          "verdict": "PASS",
+          "reason": "The translation uses an acceptable synonym 'torment' for 'trouble'."
+        },
+        "hn001": {
+          "lineId": "hn001",
+          "verdict": "PASS",
+          "reason": "Translation is equivalently capturing the gold's meaning."
+        },
+        "hn002": {
+          "lineId": "hn002",
+          "verdict": "PASS",
+          "reason": "Exact match in meaning with gold."
+        },
+        "hn003": {
+          "lineId": "hn003",
+          "verdict": "PASS",
+          "reason": "Exact match with gold; both represent the meaning correctly."
+        },
+        "hn004": {
+          "lineId": "hn004",
+          "verdict": "FAIL",
+          "reason": "Model misses 'passionate,' which changes the implied intensity of 'ishq'."
+        },
+        "hn005": {
+          "lineId": "hn005",
+          "verdict": "PASS",
+          "reason": "Model captures counterfactual wish, equivalent to gold's 'if only.'"
+        },
+        "hn006": {
+          "lineId": "hn006",
+          "verdict": "FAIL",
+          "reason": "Model translation misses the whole 'whether or not,' which changes the meaning."
+        },
+        "hn007": {
+          "lineId": "hn007",
+          "verdict": "PASS",
+          "reason": "Model translation conveyed the same focused meaning as the gold."
+        },
+        "hn008": {
+          "lineId": "hn008",
+          "verdict": "PASS",
+          "reason": "Model matches the gold faithfully."
+        },
+        "hn009": {
+          "lineId": "hn009",
+          "verdict": "PASS",
+          "reason": "'Then' is an acceptable synonym for reiteration in this phrasing."
+        },
+        "hn010": {
+          "lineId": "hn010",
+          "verdict": "PASS",
+          "reason": "Translation matches; possessive ambiguity remains."
+        },
+        "hn011": {
+          "lineId": "hn011",
+          "verdict": "FAIL",
+          "reason": "Translation 'Jolly mystic' changes the meaning of 'mast' as ecstatic."
+        },
+        "hn012": {
+          "lineId": "hn012",
+          "verdict": "PASS",
+          "reason": "The model captures the sentiment of the gold effectively."
+        },
+        "hn013": {
+          "lineId": "hn013",
+          "verdict": "PASS",
+          "reason": "Both capture the metaphor correctly, 'thread' and 'string' are equivalent."
+        },
+        "hn014": {
+          "lineId": "hn014",
+          "verdict": "PASS",
+          "reason": "The essence of the phrasing is captured in both translations."
+        },
+        "hn015": {
+          "lineId": "hn015",
+          "verdict": "FAIL",
+          "reason": "Model adds 'I meet,' which is not in subjunctive mood as gold suggests."
+        },
+        "ug001": {
+          "lineId": "ug001",
+          "verdict": "PASS",
+          "reason": "The interpretation retains meaning in context with minor differences."
+        },
+        "ug002": {
+          "lineId": "ug002",
+          "verdict": "FAIL",
+          "reason": "Some nuance is missing pertaining to 'first' love being interpreted as 'before.'"
+        },
+        "ug003": {
+          "lineId": "ug003",
+          "verdict": "PASS",
+          "reason": "The wording difference ‘beside’ versus ‘besides’ does not change the meaning."
+        },
+        "ug004": {
+          "lineId": "ug004",
+          "verdict": "FAIL",
+          "reason": "The model's translation 'takes life away' is too strong compared to 'a breath escapes' and loses the sighing/dying nuance."
+        },
+        "ug005": {
+          "lineId": "ug005",
+          "verdict": "PASS",
+          "reason": "While the wording is slightly different, the essential meaning of sacrificing one's life for the beloved's beauty is preserved."
+        },
+        "ug006": {
+          "lineId": "ug006",
+          "verdict": "PASS",
+          "reason": "The model's translation is identical to the gold direct translation."
+        },
+        "ug007": {
+          "lineId": "ug007",
+          "verdict": "FAIL",
+          "reason": "The model translation 'Beloved of beloved' is not equivalent to 'soul of my soul', which conveys a deeper connection."
+        },
+        "ug008": {
+          "lineId": "ug008",
+          "verdict": "PASS",
+          "reason": "'Pain of heart' is semantically equivalent to 'heartache'."
+        },
+        "bn001": {
+          "lineId": "bn001",
+          "verdict": "PASS",
+          "reason": "Although 'mind' does not capture both heart and mind, it is aligned with the failure note's indication that one must be chosen."
+        },
+        "bn002": {
+          "lineId": "bn002",
+          "verdict": "PASS",
+          "reason": "The translation accurately captures the meaning of the original."
+        },
+        "bn003": {
+          "lineId": "bn003",
+          "verdict": "PASS",
+          "reason": "The translation matches the gold direct, understanding the emphasis of 'go' correctly."
+        },
+        "bn004": {
+          "lineId": "bn004",
+          "verdict": "PASS",
+          "reason": "The model translation is semantically equivalent to the gold direct."
+        },
+        "bn005": {
+          "lineId": "bn005",
+          "verdict": "PASS",
+          "reason": "The model translation accurately reflects the gold direct meaning."
+        },
+        "bn006": {
+          "lineId": "bn006",
+          "verdict": "PASS",
+          "reason": "The model translation matches the gold direct translation."
+        },
+        "bn007": {
+          "lineId": "bn007",
+          "verdict": "PASS",
+          "reason": "The translation is semantically equivalent to the gold direct translation."
+        },
+        "bn008": {
+          "lineId": "bn008",
+          "verdict": "PASS",
+          "reason": "The translation adequately captures the meaning of the gold direct version."
+        },
+        "bn009": {
+          "lineId": "bn009",
+          "verdict": "PASS",
+          "reason": "The translation is an exact match to the gold direct translation."
+        },
+        "bn010": {
+          "lineId": "bn010",
+          "verdict": "PASS",
+          "reason": "The translation is semantically equivalent to the gold direct translation."
+        },
+        "bn011": {
+          "lineId": "bn011",
+          "verdict": "FAIL",
+          "reason": "The translation fails as 'taste' does not convey the same nuance as 'pleasure' in this context."
+        },
+        "bn012": {
+          "lineId": "bn012",
+          "verdict": "PASS",
+          "reason": "The translation is semantically equivalent to the gold direct translation."
+        },
+        "ta001": {
+          "lineId": "ta001",
+          "verdict": "PASS",
+          "reason": "The translation matches the gold direct translation."
+        },
+        "ta002": {
+          "lineId": "ta002",
+          "verdict": "FAIL",
+          "reason": "The model translation 'O life' loses the nuance of possessiveness present in 'O my life / O my soul'."
+        },
+        "ta003": {
+          "lineId": "ta003",
+          "verdict": "PASS",
+          "reason": "The translation is accurate and semantically equivalent to the gold direct version."
+        },
+        "ta004": {
+          "lineId": "ta004",
+          "verdict": "FAIL",
+          "reason": "'What is called love' suggests a different meaning compared to 'what is love' due to the implication of naming."
+        },
+        "ta005": {
+          "lineId": "ta005",
+          "verdict": "PASS",
+          "reason": "While differently worded, the essential meaning of time without someone's presence is maintained."
+        },
+        "ta006": {
+          "lineId": "ta006",
+          "verdict": "PASS",
+          "reason": "'Sky rain' is equivalent to 'sky rain / rain from the sky'."
+        },
+        "ta007": {
+          "lineId": "ta007",
+          "verdict": "PASS",
+          "reason": "The model translation adequately captures the repetition for emphasis of 'blooming and blooming'."
+        },
+        "ta008": {
+          "lineId": "ta008",
+          "verdict": "FAIL",
+          "reason": "The translation 'O eyes, O artistic one' changes the meaning compared to 'O dear one, O graceful one', especially in the use of 'eyes' instead of a term of affection."
+        },
+        "pn001": {
+          "lineId": "pn001",
+          "verdict": "FAIL",
+          "reason": "The model leaves 'Pasoori' untranslated as a proper noun, which loses the intended meaning of 'difficulty'."
+        },
+        "pn002": {
+          "lineId": "pn002",
+          "verdict": "FAIL",
+          "reason": "The meaning changes significantly from 'I will set this helplessness on fire' to 'Ignite the fire on compulsion'."
+        },
+        "pn003": {
+          "lineId": "pn003",
+          "verdict": "FAIL",
+          "reason": "The translation loses the endearing meaning by changing 'O my beloved' to just 'O dear'."
+        },
+        "pn004": {
+          "lineId": "pn004",
+          "verdict": "PASS",
+          "reason": "Despite slight wording difference, the existential questioning is preserved."
+        },
+        "pn005": {
+          "lineId": "pn005",
+          "verdict": "PASS",
+          "reason": "The model translation matches the gold_direct and captures the intended meaning correctly."
+        },
+        "pn006": {
+          "lineId": "pn006",
+          "verdict": "PASS",
+          "reason": "The model translation accurately conveys the meaning of the gold_direct."
+        },
+        "iz004": {
+          "lineId": "iz004",
+          "verdict": "FAIL",
+          "reason": "'Moon-faced' implies a different physical feature and is not semantically equivalent to 'moon-browed.' The error pertains to the known failure of 'jabeen = forehead' being misinterpreted as 'face.'"
+        },
+        "iz005": {
+          "lineId": "iz005",
+          "verdict": "PASS",
+          "reason": "The model translation is semantically equivalent to the gold_direct."
+        },
+        "iz006": {
+          "lineId": "iz006",
+          "verdict": "PASS",
+          "reason": "The model translation accurately reflects the meaning of the gold_direct."
+        },
+        "iz007": {
+          "lineId": "iz007",
+          "verdict": "PASS",
+          "reason": "The model translation matches the gold_direct accurately."
+        },
+        "am005": {
+          "lineId": "am005",
+          "verdict": "PASS",
+          "reason": "The model translation is semantically equivalent to the gold_direct."
+        },
+        "am006": {
+          "lineId": "am006",
+          "verdict": "PASS",
+          "reason": "The model translation correctly conveys the intended meaning of the gold_direct."
+        },
+        "am007": {
+          "lineId": "am007",
+          "verdict": "PASS",
+          "reason": "The model translation accurately represents the meaning of the gold_direct."
+        },
+        "fr005": {
+          "lineId": "fr005",
+          "verdict": "FAIL",
+          "reason": "The model translation implies a future action without completion, whereas the gold_direct indicates completion ('will have gone'). This introduces a tense mismatch."
+        },
+        "fr006": {
+          "lineId": "fr006",
+          "verdict": "PASS",
+          "reason": "The model translation correctly conveys the meaning of the gold_direct."
+        },
+        "ff006": {
+          "lineId": "ff006",
+          "verdict": "PASS",
+          "reason": "The model translation effectively communicates the meaning of the gold_direct."
+        },
+        "ff007": {
+          "lineId": "ff007",
+          "verdict": "PASS",
+          "reason": "The translation matches the gold_direct in meaning."
+        },
+        "ff008": {
+          "lineId": "ff008",
+          "verdict": "PASS",
+          "reason": "The model translation is semantically consistent with the gold_direct."
+        },
+        "ff009": {
+          "lineId": "ff009",
+          "verdict": "FAIL",
+          "reason": "The model translation incorrectly adds definite articles 'The' which are not present in the gold_direct, changing the intended generality."
+        },
+        "ct005": {
+          "lineId": "ct005",
+          "verdict": "PASS",
+          "reason": "The model translation is semantically equivalent to the gold_direct."
+        },
+        "ct006": {
+          "lineId": "ct006",
+          "verdict": "PASS",
+          "reason": "The translation captures the essence of 'May God protect you,' aligning with the gold_direct."
+        },
+        "ct007": {
+          "lineId": "ct007",
+          "verdict": "PASS",
+          "reason": "The model translation is exactly equivalent to the gold_direct."
+        }
+      }
+    },
+    "C": {
+      "desc": "gpt-4o + glossary",
+      "translation_ms": 20186,
+      "overall_accuracy": 0.7129629629629629,
+      "by_category": {
+        "punjabi_vocative": {
+          "pass": 10,
+          "total": 15,
+          "accuracy": 0.6666666666666666
+        },
+        "urdu_vocabulary": {
+          "pass": 8,
+          "total": 12,
+          "accuracy": 0.6666666666666666
+        },
+        "izafat": {
+          "pass": 10,
+          "total": 11,
+          "accuracy": 0.9090909090909091
+        },
+        "ambiguity_preservation": {
+          "pass": 8,
+          "total": 12,
+          "accuracy": 0.6666666666666666
+        },
+        "fragment_continuation": {
+          "pass": 8,
+          "total": 9,
+          "accuracy": 0.8888888888888888
+        },
+        "false_friend": {
+          "pass": 5,
+          "total": 9,
+          "accuracy": 0.5555555555555556
+        },
+        "control": {
+          "pass": 4,
+          "total": 7,
+          "accuracy": 0.5714285714285714
+        },
+        "hindi_vocabulary": {
+          "pass": 7,
+          "total": 9,
+          "accuracy": 0.7777777777777778
+        },
+        "tense_mood": {
+          "pass": 1,
+          "total": 3,
+          "accuracy": 0.3333333333333333
+        },
+        "bengali_vocabulary": {
+          "pass": 7,
+          "total": 8,
+          "accuracy": 0.875
+        },
+        "tamil_vocative": {
+          "pass": 3,
+          "total": 4,
+          "accuracy": 0.75
+        },
+        "tamil_vocabulary": {
+          "pass": 3,
+          "total": 3,
+          "accuracy": 1.0
+        },
+        "punjabi_vocabulary": {
+          "pass": 3,
+          "total": 6,
+          "accuracy": 0.5
+        }
+      },
+      "by_language": {
+        "Punjabi": {
+          "pass": 16,
+          "total": 26,
+          "accuracy": 0.6153846153846154
+        },
+        "Urdu": {
+          "pass": 17,
+          "total": 24,
+          "accuracy": 0.7083333333333334
+        },
+        "Hindi/Urdu": {
+          "pass": 12,
+          "total": 16,
+          "accuracy": 0.75
+        },
+        "Hindi": {
+          "pass": 11,
+          "total": 18,
+          "accuracy": 0.6111111111111112
+        },
+        "Hindi/Urdu/Punjabi": {
+          "pass": 1,
+          "total": 1,
+          "accuracy": 1.0
+        },
+        "Hindi/Sanskrit": {
+          "pass": 1,
+          "total": 1,
+          "accuracy": 1.0
+        },
+        "Bengali": {
+          "pass": 11,
+          "total": 13,
+          "accuracy": 0.8461538461538461
+        },
+        "Tamil": {
+          "pass": 7,
+          "total": 8,
+          "accuracy": 0.875
+        },
+        "Urdu/Persian": {
+          "pass": 1,
+          "total": 1,
+          "accuracy": 1.0
+        }
+      },
+      "translations": {
+        "pv001": "O girl, the moon is setting",
+        "pv002": "O girl, do not say anything about separation",
+        "pv003": "O girl, I will turn back",
+        "pv004": "O girl, I will go with the ascetics",
+        "pv005": "O man, how do I know who I am",
+        "pv006": "How do I explain to the heart, O my beloved?",
+        "pv007": "O girl, the moon has gone mad",
+        "pv008": "O girl, the moon has risen in the sky",
+        "pv009": "Will he come, O girl, will my beloved come",
+        "pv010": "O beloved, why did you leave me",
+        "uv001": "An extension of time, a new one",
+        "uv002": "For this love, centuries are not enough",
+        "uv003": "Where did you go, you went to fill water here",
+        "uv004": "Why have traces remained",
+        "uv005": "Night of separation",
+        "uv006": "Eyes are weeping, O girl I will turn back",
+        "uv007": "Yes, how naive I am",
+        "uv008": "Still you are adorned in my heart",
+        "iz001": "Of this restless heart",
+        "iz002": "Heartache",
+        "iz003": "Night of separation",
+        "am001": "For this love, centuries are not enough",
+        "am002": "The heart could not connect back",
+        "am003": "There are some words in these eyelashes",
+        "am004": "Still you ask for it",
+        "fr001": "of this restless heart",
+        "fr002": "tears of my eyes",
+        "fr003": "and the stars in the sky",
+        "fr004": "so ask like this",
+        "ff001": "eyes are weeping",
+        "ff002": "in a moment I melt",
+        "ff003": "listen to me",
+        "ff004": "O moon, don't set",
+        "ff005": "tears of my eyes",
+        "ct001": "O beloved, why did you leave me",
+        "ct002": "these nights are somewhat incomplete",
+        "ct003": "let me ask from God",
+        "ct004": "yes, how naive I am",
+        "pv011": "my heart does not say no",
+        "pv012": "O I am crazy",
+        "pv013": "O I have reconciled with my beloved",
+        "pv014": "listen O beloved to my words",
+        "pv015": "go O go, don't trouble me",
+        "hn001": "where is peace for me",
+        "hn002": "as long as there is life",
+        "hn003": "just one moment",
+        "hn004": "in love, we you",
+        "hn005": "if only they were here",
+        "hn006": "tomorrow may not come",
+        "hn007": "everywhere it's only you",
+        "hn008": "O heart, it is difficult",
+        "hn009": "Again, the heart brought me",
+        "hn010": "Let the heart beat",
+        "hn011": "Ecstatic wanderer",
+        "hn012": "Whatever passed, let it be",
+        "hn013": "The string of eyes",
+        "hn014": "Life may go, but promise should not go",
+        "hn015": "If you meet",
+        "ug001": "Bitterness is fine, come just to hurt the heart",
+        "ug002": "Do not ask for love like before from me, my beloved",
+        "ug003": "There are other pains in the world besides love",
+        "ug004": "Thousands of desires such that each desire makes life depart",
+        "ug005": "On the beauty of the beloved, why not lay down life?",
+        "ug006": "Night of sorrow",
+        "ug007": "Soul of my soul",
+        "ug008": "Heartache",
+        "bn001": "Heart is not well",
+        "bn002": "Where is your heart",
+        "bn003": "I know, O, I know you",
+        "bn004": "Life wants, eyes do not want",
+        "bn005": "What does love mean",
+        "bn006": "If no one comes hearing your call",
+        "bn007": "Then walk alone, O",
+        "bn008": "Sky full of sun and stars",
+        "bn009": "Who are you to me",
+        "bn010": "Beyond the river",
+        "bn011": "There is the taste of losing the path",
+        "bn012": "Who goes rowing the ebb river",
+        "ta001": "O heart",
+        "ta002": "O my life",
+        "ta003": "O wind, come",
+        "ta004": "What is romantic love",
+        "ta005": "Time without you",
+        "ta006": "Sky rain",
+        "ta007": "Blooming and blooming",
+        "ta008": "O eyes, O artistic one",
+        "pn001": "O my Pasoori, O my Pasoori",
+        "pn002": "Set fire to compulsion",
+        "pn003": "O my beloved of partings",
+        "pn004": "Bulleh, what do I know who I am",
+        "pn005": "How beautiful God has made you",
+        "pn006": "The eyes' water does not cease",
+        "iz004": "O moon-browed",
+        "iz005": "The beauty of the beloved cannot be described",
+        "iz006": "Face like a ghazal, face the soul of a ghazal",
+        "iz007": "Sigh of the helpless",
+        "am005": "Which is not spoken",
+        "am006": "The heart breaks",
+        "am007": "Evening occurs",
+        "fr005": "When you will have gone away",
+        "fr006": "The people who say",
+        "ff006": "It is only a heart, not stone and brick",
+        "ff007": "Strings of the eyes",
+        "ff008": "If there is leisure, then come",
+        "ff009": "Heart met with heart",
+        "ct005": "You are mine",
+        "ct006": "God be with you",
+        "ct007": "I love you"
+      },
+      "verdicts": {
+        "pv001": {
+          "lineId": "pv001",
+          "verdict": "PASS",
+          "reason": "Model translation is semantically equivalent to gold_direct."
+        },
+        "pv002": {
+          "lineId": "pv002",
+          "verdict": "FAIL",
+          "reason": "Model translation omits addressing 'O [man]' which is a part of the gold_direct."
+        },
+        "pv003": {
+          "lineId": "pv003",
+          "verdict": "PASS",
+          "reason": "Model translation is semantically equivalent to gold_direct, with only a change in tense which is acceptable."
+        },
+        "pv004": {
+          "lineId": "pv004",
+          "verdict": "PASS",
+          "reason": "Model translation is semantically equivalent to the gold_direct; 'ascetics' is a synonym for 'mystics'."
+        },
+        "pv005": {
+          "lineId": "pv005",
+          "verdict": "PASS",
+          "reason": "Model translation is an acceptable variant of the gold_direct."
+        },
+        "pv006": {
+          "lineId": "pv006",
+          "verdict": "PASS",
+          "reason": "Model translation is semantically equivalent to the gold_direct, with a slight wording change that does not alter meaning."
+        },
+        "pv007": {
+          "lineId": "pv007",
+          "verdict": "PASS",
+          "reason": "Model translation is semantically equivalent to gold_direct."
+        },
+        "pv008": {
+          "lineId": "pv008",
+          "verdict": "PASS",
+          "reason": "Model translation is semantically equivalent to gold_direct."
+        },
+        "pv009": {
+          "lineId": "pv009",
+          "verdict": "FAIL",
+          "reason": "Model translation changes the meaning to a question instead of a statement."
+        },
+        "pv010": {
+          "lineId": "pv010",
+          "verdict": "PASS",
+          "reason": "Model translation is semantically equivalent to gold_direct."
+        },
+        "uv001": {
+          "lineId": "uv001",
+          "verdict": "FAIL",
+          "reason": "Model translation introduces 'extension of time' which is not in the gold_direct."
+        },
+        "uv002": {
+          "lineId": "uv002",
+          "verdict": "PASS",
+          "reason": "Model translation is semantically equivalent to gold_direct."
+        },
+        "uv003": {
+          "lineId": "uv003",
+          "verdict": "PASS",
+          "reason": "Model translation captures the essence of the action in the gold_direct, correctly focusing on the action of going to fill water."
+        },
+        "uv004": {
+          "lineId": "uv004",
+          "verdict": "PASS",
+          "reason": "Model translation is semantically equivalent to gold_direct."
+        },
+        "uv005": {
+          "lineId": "uv005",
+          "verdict": "PASS",
+          "reason": "Model translation is semantically equivalent to gold_direct."
+        },
+        "uv006": {
+          "lineId": "uv006",
+          "verdict": "PASS",
+          "reason": "Model translation is semantically equivalent to gold_direct with an acceptable change in tense."
+        },
+        "uv007": {
+          "lineId": "uv007",
+          "verdict": "PASS",
+          "reason": "Model translation is semantically equivalent to gold_direct."
+        },
+        "uv008": {
+          "lineId": "uv008",
+          "verdict": "FAIL",
+          "reason": "Model translation introduces 'still' which adds a temporal element not present in the gold_direct."
+        },
+        "iz001": {
+          "lineId": "iz001",
+          "verdict": "PASS",
+          "reason": "Model translation is semantically equivalent to gold_direct."
+        },
+        "iz002": {
+          "lineId": "iz002",
+          "verdict": "PASS",
+          "reason": "Model translation is semantically equivalent to an acceptable variant of gold_direct."
+        },
+        "iz003": {
+          "lineId": "iz003",
+          "verdict": "PASS",
+          "reason": "Model translation is semantically equivalent to gold_direct."
+        },
+        "am001": {
+          "lineId": "am001",
+          "verdict": "PASS",
+          "reason": "Model translation is semantically equivalent to gold_direct."
+        },
+        "am002": {
+          "lineId": "am002",
+          "verdict": "PASS",
+          "reason": "Model translation captures the meaning of the gold_direct accurately."
+        },
+        "am003": {
+          "lineId": "am003",
+          "verdict": "PASS",
+          "reason": "Model translation is semantically equivalent to gold_direct."
+        },
+        "am004": {
+          "lineId": "am004",
+          "verdict": "FAIL",
+          "reason": "Model translation adds 'for it' which is not in the gold_direct."
+        },
+        "fr001": {
+          "lineId": "fr001",
+          "verdict": "PASS",
+          "reason": "Model translation is semantically equivalent to gold_direct."
+        },
+        "fr002": {
+          "lineId": "fr002",
+          "verdict": "PASS",
+          "reason": "Model translation is semantically equivalent to gold_direct."
+        },
+        "fr003": {
+          "lineId": "fr003",
+          "verdict": "PASS",
+          "reason": "Model translation is semantically equivalent to gold_direct."
+        },
+        "fr004": {
+          "lineId": "fr004",
+          "verdict": "PASS",
+          "reason": "Model translation is semantically equivalent to gold_direct."
+        },
+        "ff001": {
+          "lineId": "ff001",
+          "verdict": "PASS",
+          "reason": "Model translation is semantically equivalent to gold_direct."
+        },
+        "ff002": {
+          "lineId": "ff002",
+          "verdict": "FAIL",
+          "reason": "The model translation uses present tense \"melt\" versus the conditional in the gold \"would melt,\" changing the meaning."
+        },
+        "ff003": {
+          "lineId": "ff003",
+          "verdict": "FAIL",
+          "reason": "The model translates \"listen to me\" missing \"words\" which alters the specific meaning intended in the gold."
+        },
+        "ff004": {
+          "lineId": "ff004",
+          "verdict": "FAIL",
+          "reason": "Model confuses the meaning, addressing the moon instead of a girl about the moon setting."
+        },
+        "ff005": {
+          "lineId": "ff005",
+          "verdict": "PASS",
+          "reason": "The model translation is semantically equivalent to the gold."
+        },
+        "ct001": {
+          "lineId": "ct001",
+          "verdict": "PASS",
+          "reason": "The model translation matches the gold exactly."
+        },
+        "ct002": {
+          "lineId": "ct002",
+          "verdict": "FAIL",
+          "reason": "The model uses \"these nights\" vs. \"all the nights\", changing the scope and meaning."
+        },
+        "ct003": {
+          "lineId": "ct003",
+          "verdict": "FAIL",
+          "reason": "The model changes \"I will ask\" to \"let me ask,\" altering the intent."
+        },
+        "ct004": {
+          "lineId": "ct004",
+          "verdict": "PASS",
+          "reason": "The model translation is identical in meaning to the gold."
+        },
+        "pv011": {
+          "lineId": "pv011",
+          "verdict": "FAIL",
+          "reason": "Mid-sentence \"ni\" is incorrectly translated as a negation instead of a vocative, altering the statement meaning."
+        },
+        "pv012": {
+          "lineId": "pv012",
+          "verdict": "FAIL",
+          "reason": "The model misses the vocative \"O [girl]\", altering the address."
+        },
+        "pv013": {
+          "lineId": "pv013",
+          "verdict": "FAIL",
+          "reason": "The model misses the vocative \"O [man]\", changing the address."
+        },
+        "pv014": {
+          "lineId": "pv014",
+          "verdict": "PASS",
+          "reason": "The model translation is equivalent to the gold."
+        },
+        "pv015": {
+          "lineId": "pv015",
+          "verdict": "PASS",
+          "reason": "The translation is semantically similar to the gold, with acceptable variance in wording."
+        },
+        "hn001": {
+          "lineId": "hn001",
+          "verdict": "PASS",
+          "reason": "The model translation retains the meaning of the gold."
+        },
+        "hn002": {
+          "lineId": "hn002",
+          "verdict": "PASS",
+          "reason": "The model translation is identical to the gold."
+        },
+        "hn003": {
+          "lineId": "hn003",
+          "verdict": "PASS",
+          "reason": "The model translation matches the gold exactly."
+        },
+        "hn004": {
+          "lineId": "hn004",
+          "verdict": "FAIL",
+          "reason": "The word order is incorrect and the translated meaning is confusing, \"we you\" alters the intended message of the gold."
+        },
+        "hn005": {
+          "lineId": "hn005",
+          "verdict": "PASS",
+          "reason": "The model translation matches the counterfactual meaning of the gold."
+        },
+        "hn006": {
+          "lineId": "hn006",
+          "verdict": "FAIL",
+          "reason": "The model implies a lack of tomorrow, while the gold expresses uncertainty if tomorrow exists."
+        },
+        "hn007": {
+          "lineId": "hn007",
+          "verdict": "PASS",
+          "reason": "The essential meaning of the model is the same as the gold."
+        },
+        "hn008": {
+          "lineId": "hn008",
+          "verdict": "PASS",
+          "reason": "The model translation matches the gold with no errors."
+        },
+        "hn009": {
+          "lineId": "hn009",
+          "verdict": "FAIL",
+          "reason": "The model reverses emphasis by starting with \"again,\" slightly altering the action sequence."
+        },
+        "hn010": {
+          "lineId": "hn010",
+          "verdict": "PASS",
+          "reason": "The meaning is correct, maintaining the gold's semantic intent."
+        },
+        "hn011": {
+          "lineId": "hn011",
+          "verdict": "PASS",
+          "reason": "The model captures the gold's meaning adequately."
+        },
+        "hn012": {
+          "lineId": "hn012",
+          "verdict": "FAIL",
+          "reason": "The model adds an element of \"let it be\" that is not present in the gold."
+        },
+        "hn013": {
+          "lineId": "hn013",
+          "verdict": "FAIL",
+          "reason": "The model translation differs in meaning by referring ambiguously to \"string of eyes\" rather than the specific \"string of the eyes.\""
+        },
+        "hn014": {
+          "lineId": "hn014",
+          "verdict": "PASS",
+          "reason": "The model captures the intended meaning of letting life go but not a promise, parallel to the gold."
+        },
+        "hn015": {
+          "lineId": "hn015",
+          "verdict": "FAIL",
+          "reason": "The translation alters the meaning from \"found/met\" to \"you meet,\" changing the interpretation."
+        },
+        "ug001": {
+          "lineId": "ug001",
+          "verdict": "PASS",
+          "reason": "The model translation's meaning aligns well with the gold."
+        },
+        "ug002": {
+          "lineId": "ug002",
+          "verdict": "FAIL",
+          "reason": "The model's rephrasing incorrectly alters the mood from a specific past love to general past repetition, deviating from the gold."
+        },
+        "ug003": {
+          "lineId": "ug003",
+          "verdict": "PASS",
+          "reason": "'Pains' and 'sorrows' are semantically equivalent in this context."
+        },
+        "ug004": {
+          "lineId": "ug004",
+          "verdict": "FAIL",
+          "reason": "The translation 'makes life depart' is too strong compared to 'a breath escapes', changing the intensity and nature of the action."
+        },
+        "ug005": {
+          "lineId": "ug005",
+          "verdict": "PASS",
+          "reason": "The model translation conveys the same intention as the gold_direct, despite slight wording differences."
+        },
+        "ug006": {
+          "lineId": "ug006",
+          "verdict": "PASS",
+          "reason": "The translation 'Night of sorrow' matches the gold_direct exactly."
+        },
+        "ug007": {
+          "lineId": "ug007",
+          "verdict": "PASS",
+          "reason": "The translation 'Soul of my soul' matches the gold_direct exactly."
+        },
+        "ug008": {
+          "lineId": "ug008",
+          "verdict": "PASS",
+          "reason": "The translation 'Heartache' matches the gold_direct exactly."
+        },
+        "bn001": {
+          "lineId": "bn001",
+          "verdict": "PASS",
+          "reason": "The translation captures the essence of the gold_direct by conveying the state of the 'heart'."
+        },
+        "bn002": {
+          "lineId": "bn002",
+          "verdict": "PASS",
+          "reason": "The translation is semantically equivalent to the gold_direct, covering both 'heart' and 'mind' meanings."
+        },
+        "bn003": {
+          "lineId": "bn003",
+          "verdict": "PASS",
+          "reason": "The translation captures the original meaning adequately, with 'O' covering the emphasis particle 'go'."
+        },
+        "bn004": {
+          "lineId": "bn004",
+          "verdict": "PASS",
+          "reason": "The model translation is semantically equivalent to the gold_direct despite slight wording differences."
+        },
+        "bn005": {
+          "lineId": "bn005",
+          "verdict": "PASS",
+          "reason": "The translation matches the gold_direct exactly."
+        },
+        "bn006": {
+          "lineId": "bn006",
+          "verdict": "PASS",
+          "reason": "The model's translation matches the gold_direct exactly."
+        },
+        "bn007": {
+          "lineId": "bn007",
+          "verdict": "PASS",
+          "reason": "The translation is semantically equivalent to the gold_direct, with 'O' covering the vocative particle 're'."
+        },
+        "bn008": {
+          "lineId": "bn008",
+          "verdict": "PASS",
+          "reason": "The translation accurately captures the meaning of the gold_direct."
+        },
+        "bn009": {
+          "lineId": "bn009",
+          "verdict": "PASS",
+          "reason": "The translation matches the gold_direct exactly."
+        },
+        "bn010": {
+          "lineId": "bn010",
+          "verdict": "PASS",
+          "reason": "The translation 'Beyond the river' conveys the same meaning as 'on the other side of the river'."
+        },
+        "bn011": {
+          "lineId": "bn011",
+          "verdict": "FAIL",
+          "reason": "'The taste of losing the path' doesn't fully convey the pleasurable connotation of 'losing one's way'."
+        },
+        "bn012": {
+          "lineId": "bn012",
+          "verdict": "FAIL",
+          "reason": "The phrase 'rowing the ebb river' misrepresents the meaning of 'rowing downstream', altering the direction implied."
+        },
+        "ta001": {
+          "lineId": "ta001",
+          "verdict": "PASS",
+          "reason": "The translation matches the gold_direct exactly."
+        },
+        "ta002": {
+          "lineId": "ta002",
+          "verdict": "PASS",
+          "reason": "The translation 'O my life' is semantically equivalent to the gold_direct."
+        },
+        "ta003": {
+          "lineId": "ta003",
+          "verdict": "PASS",
+          "reason": "The translation matches the gold_direct exactly."
+        },
+        "ta004": {
+          "lineId": "ta004",
+          "verdict": "PASS",
+          "reason": "The translation 'What is romantic love' is semantically consistent with 'what is love' given the explanation of 'kaadhal'."
+        },
+        "ta005": {
+          "lineId": "ta005",
+          "verdict": "PASS",
+          "reason": "'Time without you' effectively conveys the meaning of 'the time when you are not there'."
+        },
+        "ta006": {
+          "lineId": "ta006",
+          "verdict": "PASS",
+          "reason": "The translation 'Sky rain' matches the gold_direct."
+        },
+        "ta007": {
+          "lineId": "ta007",
+          "verdict": "PASS",
+          "reason": "The repetition 'Blooming and blooming' reflects the intent of the original."
+        },
+        "ta008": {
+          "lineId": "ta008",
+          "verdict": "FAIL",
+          "reason": "The translation changes 'O dear one' to 'O eyes', altering the intended endearment."
+        },
+        "pn001": {
+          "lineId": "pn001",
+          "verdict": "FAIL",
+          "reason": "'Pasoori' remains untranslated; it should convey 'difficulty'."
+        },
+        "pn002": {
+          "lineId": "pn002",
+          "verdict": "FAIL",
+          "reason": "The translation 'Set fire to compulsion' lacks the explicit subject 'I will' and changes the intended action."
+        },
+        "pn003": {
+          "lineId": "pn003",
+          "verdict": "PASS",
+          "reason": "'O my beloved of partings' is semantically equivalent to 'O my beloved, of separations'."
+        },
+        "pn004": {
+          "lineId": "pn004",
+          "verdict": "PASS",
+          "reason": "The translation 'Bulleh, what do I know who I am' effectively conveys the existential nature of the original phrase."
+        },
+        "pn005": {
+          "lineId": "pn005",
+          "verdict": "PASS",
+          "reason": "The model translation accurately conveys the meaning of the gold_direct translation without any errors."
+        },
+        "pn006": {
+          "lineId": "pn006",
+          "verdict": "FAIL",
+          "reason": "The model translation uses 'water' instead of the more specific 'tears,' which doesn't fully capture the emotional context of the original."
+        },
+        "iz004": {
+          "lineId": "iz004",
+          "verdict": "FAIL",
+          "reason": "The model adds 'O' which implies an address not present in the gold and changes the meaning from a descriptive noun to a vocative phrase."
+        },
+        "iz005": {
+          "lineId": "iz005",
+          "verdict": "PASS",
+          "reason": "The model translation conveys the same meaning as the gold_direct translation."
+        },
+        "iz006": {
+          "lineId": "iz006",
+          "verdict": "PASS",
+          "reason": "The model translation accurately reflects the poetic nature of the original text, capturing the metaphorical meaning without introducing errors."
+        },
+        "iz007": {
+          "lineId": "iz007",
+          "verdict": "PASS",
+          "reason": "The model translation is semantically equivalent to the gold_direct translation without any errors."
+        },
+        "am005": {
+          "lineId": "am005",
+          "verdict": "FAIL",
+          "reason": "The model translation changes the impersonal nature of the original phrase to one that could be interpreted as excluding the speaker or listener."
+        },
+        "am006": {
+          "lineId": "am006",
+          "verdict": "PASS",
+          "reason": "The model translation accurately reflects the universal sentiment of the original sentence."
+        },
+        "am007": {
+          "lineId": "am007",
+          "verdict": "PASS",
+          "reason": "The model translation is synonymous with the gold_direct translation and accurately conveys the original meaning."
+        },
+        "fr005": {
+          "lineId": "fr005",
+          "verdict": "PASS",
+          "reason": "The model translation is identical to the gold_direct translation."
+        },
+        "fr006": {
+          "lineId": "fr006",
+          "verdict": "PASS",
+          "reason": "The model translation adequately conveys the meaning of the gold_direct translation with no additional content."
+        },
+        "ff006": {
+          "lineId": "ff006",
+          "verdict": "PASS",
+          "reason": "The model translation accurately reflects the sentiment of the gold_direct without introducing errors or changes in meaning."
+        },
+        "ff007": {
+          "lineId": "ff007",
+          "verdict": "PASS",
+          "reason": "The model translation adequately conveys the meaning of the gold_direct translation without any semantic changes."
+        },
+        "ff008": {
+          "lineId": "ff008",
+          "verdict": "FAIL",
+          "reason": "The model translation changes the condition to a general one, whereas the gold_direct specifies a personal condition ('if you are free')."
+        },
+        "ff009": {
+          "lineId": "ff009",
+          "verdict": "PASS",
+          "reason": "The model translation is adequately equivalent to the gold_direct translation; the addition of 'with' doesn't materially change the meaning."
+        },
+        "ct005": {
+          "lineId": "ct005",
+          "verdict": "PASS",
+          "reason": "The model translation is exactly equivalent to the gold_direct translation."
+        },
+        "ct006": {
+          "lineId": "ct006",
+          "verdict": "FAIL",
+          "reason": "The model misses the protective aspect of 'may God protect you,' reducing it to just 'God be with you.'"
+        },
+        "ct007": {
+          "lineId": "ct007",
+          "verdict": "PASS",
+          "reason": "The model translation is an exact match and accurately conveys the same direct meaning as the gold_direct translation."
+        }
+      }
+    },
+    "D": {
+      "desc": "gpt-4o + gpt-5.5 audit",
+      "translation_ms": 148681,
+      "overall_accuracy": 0.6944444444444444,
+      "by_category": {
+        "punjabi_vocative": {
+          "pass": 8,
+          "total": 15,
+          "accuracy": 0.5333333333333333
+        },
+        "urdu_vocabulary": {
+          "pass": 9,
+          "total": 12,
+          "accuracy": 0.75
+        },
+        "izafat": {
+          "pass": 9,
+          "total": 11,
+          "accuracy": 0.8181818181818182
+        },
+        "ambiguity_preservation": {
+          "pass": 8,
+          "total": 12,
+          "accuracy": 0.6666666666666666
+        },
+        "fragment_continuation": {
+          "pass": 8,
+          "total": 9,
+          "accuracy": 0.8888888888888888
+        },
+        "false_friend": {
+          "pass": 5,
+          "total": 9,
+          "accuracy": 0.5555555555555556
+        },
+        "control": {
+          "pass": 6,
+          "total": 7,
+          "accuracy": 0.8571428571428571
+        },
+        "hindi_vocabulary": {
+          "pass": 7,
+          "total": 9,
+          "accuracy": 0.7777777777777778
+        },
+        "tense_mood": {
+          "pass": 0,
+          "total": 3,
+          "accuracy": 0.0
+        },
+        "bengali_vocabulary": {
+          "pass": 6,
+          "total": 8,
+          "accuracy": 0.75
+        },
+        "tamil_vocative": {
+          "pass": 3,
+          "total": 4,
+          "accuracy": 0.75
+        },
+        "tamil_vocabulary": {
+          "pass": 3,
+          "total": 3,
+          "accuracy": 1.0
+        },
+        "punjabi_vocabulary": {
+          "pass": 3,
+          "total": 6,
+          "accuracy": 0.5
+        }
+      },
+      "by_language": {
+        "Punjabi": {
+          "pass": 15,
+          "total": 26,
+          "accuracy": 0.5769230769230769
+        },
+        "Urdu": {
+          "pass": 18,
+          "total": 24,
+          "accuracy": 0.75
+        },
+        "Hindi/Urdu": {
+          "pass": 15,
+          "total": 16,
+          "accuracy": 0.9375
+        },
+        "Hindi": {
+          "pass": 7,
+          "total": 18,
+          "accuracy": 0.3888888888888889
+        },
+        "Hindi/Urdu/Punjabi": {
+          "pass": 0,
+          "total": 1,
+          "accuracy": 0.0
+        },
+        "Hindi/Sanskrit": {
+          "pass": 1,
+          "total": 1,
+          "accuracy": 1.0
+        },
+        "Bengali": {
+          "pass": 11,
+          "total": 13,
+          "accuracy": 0.8461538461538461
+        },
+        "Tamil": {
+          "pass": 7,
+          "total": 8,
+          "accuracy": 0.875
+        },
+        "Urdu/Persian": {
+          "pass": 1,
+          "total": 1,
+          "accuracy": 1.0
+        }
+      },
+      "translations": {
+        "pv001": "O moon, to set",
+        "pv002": "O do not, separation about I talk not",
+        "pv003": "O I return",
+        "pv004": "O I go with ascetics",
+        "pv005": "O what do I know, who am I",
+        "pv006": "How to explain to the heart, O my beloved?",
+        "pv007": "O moon has gone mad",
+        "pv008": "O moon has risen on the sky",
+        "pv009": "Come, O come, my beloved",
+        "pv010": "O beloved, why did you leave me",
+        "uv001": "A new in respite",
+        "uv002": "For this love, centuries are not enough",
+        "uv003": "Where have you gone, to fill water here",
+        "uv004": "Why have signs remained",
+        "uv005": "Night of separation",
+        "uv006": "Eyes have wept, O I return",
+        "uv007": "Yes, how naive I am",
+        "uv008": "You are still adorned in my heart",
+        "iz001": "Of this restless heart",
+        "iz002": "Pain of heart",
+        "iz003": "Night of separation",
+        "am001": "For this love, centuries are not enough",
+        "am002": "The heart could not be joined back together",
+        "am003": "There are some things in these eyelids",
+        "am004": "Then ask like this",
+        "fr001": "of this restless heart",
+        "fr002": "my eyes' tears",
+        "fr003": "and the stars in the sky",
+        "fr004": "so ask like this",
+        "ff001": "Eyes have wept",
+        "ff002": "in a moment I will melt",
+        "ff003": "listen to my words",
+        "ff004": "O moon, to set",
+        "ff005": "my eyes' tears",
+        "ct001": "O beloved, why did you leave me",
+        "ct002": "these incomplete nights are",
+        "ct003": "I will ask from God",
+        "ct004": "yes, how naive I am",
+        "pv011": "my heart does not agree",
+        "pv012": "O I am mad",
+        "pv013": "O I have convinced my beloved",
+        "pv014": "listen O beloved to my words",
+        "pv015": "go O go, do not trouble me",
+        "hn001": "I do not have peace anywhere",
+        "hn002": "as long as there is life",
+        "hn003": "just one moment",
+        "hn004": "in love, you and I",
+        "hn005": "wish they were",
+        "hn006": "tomorrow may not be",
+        "hn007": "everywhere, it is only you",
+        "hn008": "O heart, it is difficult",
+        "hn009": "The heart brought me back again",
+        "hn010": "Let the heart beat",
+        "hn011": "Intoxicated qalandar",
+        "hn012": "What is gone, is gone",
+        "hn013": "The string of eyes",
+        "hn014": "Life may go, but promise may not go",
+        "hn015": "If you meet",
+        "ug001": "Let it be anger, come to hurt the heart",
+        "ug002": "Do not ask me for love as before, my beloved",
+        "ug003": "There are other pains in the world besides love",
+        "ug004": "Thousands of desires such that at every desire, life is sacrificed",
+        "ug005": "Why would we not sacrifice our lives for the beloved's beauty",
+        "ug006": "Night of sorrow",
+        "ug007": "Life of life",
+        "ug008": "Pain of heart",
+        "bn001": "Mind is not well",
+        "bn002": "Where is your mind",
+        "bn003": "I know you, oh I know you",
+        "bn004": "Life desires, eyes do not desire",
+        "bn005": "What is the meaning of love",
+        "bn006": "If no one comes hearing your call",
+        "bn007": "Then walk alone",
+        "bn008": "Sky filled with sun and stars",
+        "bn009": "Who are you to me",
+        "bn010": "Across the river",
+        "bn011": "There is a taste of losing the way",
+        "bn012": "Who goes rowing the downstream river",
+        "ta001": "Oh heart",
+        "ta002": "Oh life",
+        "ta003": "Oh wind, come",
+        "ta004": "What is love",
+        "ta005": "Time without you",
+        "ta006": "Sky rain",
+        "ta007": "Blooming, blooming",
+        "ta008": "Dear one, graceful deer",
+        "pn001": "My Pasoori, My Pasoori",
+        "pn002": "Set the fire to compulsion",
+        "pn003": "Of my lover’s separations",
+        "pn004": "Bulha, what do I know, who am I?",
+        "pn005": "How beautiful God made you",
+        "pn006": "Tears of the eyes do not stop",
+        "iz004": "Moon-faced",
+        "iz005": "It is not possible to praise the beauty of the beloved",
+        "iz006": "Face like a poem, face the soul of the poem",
+        "iz007": "Sigh of the helpless",
+        "am005": "That cannot be spoken",
+        "am006": "The heart breaks",
+        "am007": "The evening happens",
+        "fr005": "When you leave",
+        "fr006": "those people who say",
+        "ff006": "It is only a heart, not stone and brick",
+        "ff007": "Eyes' thread",
+        "ff008": "If there is leisure, then come",
+        "ff009": "Heart to heart met",
+        "ct005": "You are mine",
+        "ct006": "Goodbye",
+        "ct007": "I love you"
+      },
+      "verdicts": {
+        "pv001": {
+          "lineId": "pv001",
+          "verdict": "FAIL",
+          "reason": "The model translation addresses the moon directly rather than the listener."
+        },
+        "pv002": {
+          "lineId": "pv002",
+          "verdict": "FAIL",
+          "reason": "The model translation is missing the vocative address to the listener and changes the meaning by implying the speaker will not talk instead."
+        },
+        "pv003": {
+          "lineId": "pv003",
+          "verdict": "PASS",
+          "reason": "Translation may slightly differ in wording but captures the correct meaning of returning or turning back."
+        },
+        "pv004": {
+          "lineId": "pv004",
+          "verdict": "PASS",
+          "reason": "The translation is equivalent to the gold as it captures the meaning of going with the mystics."
+        },
+        "pv005": {
+          "lineId": "pv005",
+          "verdict": "PASS",
+          "reason": "The translation is a semantically equivalent acceptable variant of the gold."
+        },
+        "pv006": {
+          "lineId": "pv006",
+          "verdict": "PASS",
+          "reason": "The translation accurately captures the meaning of making the heart understand."
+        },
+        "pv007": {
+          "lineId": "pv007",
+          "verdict": "FAIL",
+          "reason": "The model incorrectly addresses the moon instead of the listener."
+        },
+        "pv008": {
+          "lineId": "pv008",
+          "verdict": "FAIL",
+          "reason": "The translation addresses the moon instead of addressing the listener."
+        },
+        "pv009": {
+          "lineId": "pv009",
+          "verdict": "FAIL",
+          "reason": "The model translation changes the meaning by removing the repetition and introducing negation."
+        },
+        "pv010": {
+          "lineId": "pv010",
+          "verdict": "PASS",
+          "reason": "The model translation matches the gold perfectly."
+        },
+        "uv001": {
+          "lineId": "uv001",
+          "verdict": "FAIL",
+          "reason": "The translation is ungrammatical and does not capture the provision of respite."
+        },
+        "uv002": {
+          "lineId": "uv002",
+          "verdict": "PASS",
+          "reason": "The translation is semantically equivalent to the gold."
+        },
+        "uv003": {
+          "lineId": "uv003",
+          "verdict": "PASS",
+          "reason": "The translation is a correct interpretation and matches the gold."
+        },
+        "uv004": {
+          "lineId": "uv004",
+          "verdict": "PASS",
+          "reason": "The translation captures the meaning of marks, equivalent to signs."
+        },
+        "uv005": {
+          "lineId": "uv005",
+          "verdict": "PASS",
+          "reason": "The translation is semantically equivalent to the gold."
+        },
+        "uv006": {
+          "lineId": "uv006",
+          "verdict": "PASS",
+          "reason": "The translation captures the turning back concept correctly."
+        },
+        "uv007": {
+          "lineId": "uv007",
+          "verdict": "PASS",
+          "reason": "The translation is semantically equivalent to the gold."
+        },
+        "uv008": {
+          "lineId": "uv008",
+          "verdict": "FAIL",
+          "reason": "The translation changes the meaning by adding 'still', which implies a continuous state not in the gold."
+        },
+        "iz001": {
+          "lineId": "iz001",
+          "verdict": "PASS",
+          "reason": "The translation accurately reflects the gold."
+        },
+        "iz002": {
+          "lineId": "iz002",
+          "verdict": "PASS",
+          "reason": "The translation 'Pain of heart' is an acceptable variant of 'heartache'."
+        },
+        "iz003": {
+          "lineId": "iz003",
+          "verdict": "PASS",
+          "reason": "The translation correctly captures the meaning as in the gold."
+        },
+        "am001": {
+          "lineId": "am001",
+          "verdict": "PASS",
+          "reason": "The translation is semantically equivalent to the gold."
+        },
+        "am002": {
+          "lineId": "am002",
+          "verdict": "PASS",
+          "reason": "The translation captures the meaning of rejoining as per the gold."
+        },
+        "am003": {
+          "lineId": "am003",
+          "verdict": "FAIL",
+          "reason": "The translation changes 'words' to 'things', altering the meaning."
+        },
+        "am004": {
+          "lineId": "am004",
+          "verdict": "FAIL",
+          "reason": "The translation changes the instruction by adding 'like this', altering the meaning."
+        },
+        "fr001": {
+          "lineId": "fr001",
+          "verdict": "PASS",
+          "reason": "The fragment is accurately translated and equivalent to the gold."
+        },
+        "fr002": {
+          "lineId": "fr002",
+          "verdict": "PASS",
+          "reason": "The translation is a semantically equivalent phrase capturing the original meaning."
+        },
+        "fr003": {
+          "lineId": "fr003",
+          "verdict": "PASS",
+          "reason": "The fragment correctly captures the meaning and ends accurately as per the gold."
+        },
+        "fr004": {
+          "lineId": "fr004",
+          "verdict": "PASS",
+          "reason": "The translation accurately captures the meaning of the gold."
+        },
+        "ff001": {
+          "lineId": "ff001",
+          "verdict": "PASS",
+          "reason": "The translation captures the correct meaning of weeping and is equivalent to the gold."
+        },
+        "ff002": {
+          "lineId": "ff002",
+          "verdict": "FAIL",
+          "reason": "The model translation uses 'will' instead of 'would,' which changes the meaning from uncertain to certain future action."
+        },
+        "ff003": {
+          "lineId": "ff003",
+          "verdict": "PASS",
+          "reason": "The model translation is a direct match with the gold translation."
+        },
+        "ff004": {
+          "lineId": "ff004",
+          "verdict": "FAIL",
+          "reason": "The model translation changes 'O girl, the moon is setting' to addressing the moon directly, which alters the original meaning."
+        },
+        "ff005": {
+          "lineId": "ff005",
+          "verdict": "PASS",
+          "reason": "The model translation is semantically equivalent to the gold translation."
+        },
+        "ct001": {
+          "lineId": "ct001",
+          "verdict": "PASS",
+          "reason": "The model translation is semantically equivalent to the gold translation."
+        },
+        "ct002": {
+          "lineId": "ct002",
+          "verdict": "FAIL",
+          "reason": "The model translation rearranges the structure and meaning, changing from 'all nights are somewhat incomplete' to specifying only incomplete nights."
+        },
+        "ct003": {
+          "lineId": "ct003",
+          "verdict": "PASS",
+          "reason": "The model translation is semantically equivalent to the gold translation."
+        },
+        "ct004": {
+          "lineId": "ct004",
+          "verdict": "PASS",
+          "reason": "The model translation is semantically equivalent to the gold translation."
+        },
+        "pv011": {
+          "lineId": "pv011",
+          "verdict": "PASS",
+          "reason": "The model translation is semantically equivalent to the gold translation, correctly handling the vocative 'ni'."
+        },
+        "pv012": {
+          "lineId": "pv012",
+          "verdict": "PASS",
+          "reason": "The model translation is semantically equivalent to the gold translation, 'mad' is an acceptable variant of 'crazy.'"
+        },
+        "pv013": {
+          "lineId": "pv013",
+          "verdict": "FAIL",
+          "reason": "The model translation changes 'reconciled with my beloved' to 'convinced my beloved,' altering the meaning."
+        },
+        "pv014": {
+          "lineId": "pv014",
+          "verdict": "PASS",
+          "reason": "The model translation is semantically equivalent to the gold translation."
+        },
+        "pv015": {
+          "lineId": "pv015",
+          "verdict": "FAIL",
+          "reason": "The model drops the vocative 'O [man],' which changes the tone and meaning slightly."
+        },
+        "hn001": {
+          "lineId": "hn001",
+          "verdict": "FAIL",
+          "reason": "The model translation uses a negative form not present in the gold."
+        },
+        "hn002": {
+          "lineId": "hn002",
+          "verdict": "PASS",
+          "reason": "The model translation is semantically equivalent to the gold translation."
+        },
+        "hn003": {
+          "lineId": "hn003",
+          "verdict": "PASS",
+          "reason": "The model translation is semantically equivalent to the gold translation."
+        },
+        "hn004": {
+          "lineId": "hn004",
+          "verdict": "PASS",
+          "reason": "The model translation is semantically equivalent to the gold translation, despite lack of distinction."
+        },
+        "hn005": {
+          "lineId": "hn005",
+          "verdict": "FAIL",
+          "reason": "The model translation weakens the counterfactual meaning 'if only they were here' by using 'wish they were.'"
+        },
+        "hn006": {
+          "lineId": "hn006",
+          "verdict": "FAIL",
+          "reason": "The model translation changes the meaning from a possibility ('may or may not be') to a single possibility ('tomorrow may not be')."
+        },
+        "hn007": {
+          "lineId": "hn007",
+          "verdict": "PASS",
+          "reason": "The model translation is semantically equivalent, given usage context."
+        },
+        "hn008": {
+          "lineId": "hn008",
+          "verdict": "PASS",
+          "reason": "The model translation is semantically equivalent to the gold translation."
+        },
+        "hn009": {
+          "lineId": "hn009",
+          "verdict": "PASS",
+          "reason": "The model translation is semantically equivalent to the gold translation."
+        },
+        "hn010": {
+          "lineId": "hn010",
+          "verdict": "PASS",
+          "reason": "The model translation is semantically equivalent to the gold translation."
+        },
+        "hn011": {
+          "lineId": "hn011",
+          "verdict": "FAIL",
+          "reason": "The model translation leaves 'qalandar' untranslated and doesn't fully capture the concept of a mystic."
+        },
+        "hn012": {
+          "lineId": "hn012",
+          "verdict": "FAIL",
+          "reason": "The model simplifies and alters the original phrase, which concerns a matter passing."
+        },
+        "hn013": {
+          "lineId": "hn013",
+          "verdict": "PASS",
+          "reason": "The model translation is semantically equivalent to the gold translation."
+        },
+        "hn014": {
+          "lineId": "hn014",
+          "verdict": "PASS",
+          "reason": "The model translation is semantically equivalent to the gold translation."
+        },
+        "hn015": {
+          "lineId": "hn015",
+          "verdict": "FAIL",
+          "reason": "The model incorrectly interprets 'mile,' altering context from 'when you are found.'"
+        },
+        "ug001": {
+          "lineId": "ug001",
+          "verdict": "PASS",
+          "reason": "The model translation is close enough to the gold translation, capturing the emotive essence of 'ranjish.'"
+        },
+        "ug002": {
+          "lineId": "ug002",
+          "verdict": "PASS",
+          "reason": "The model translation is not materially different from the gold translation, capturing the same sentiment."
+        },
+        "ug003": {
+          "lineId": "ug003",
+          "verdict": "PASS",
+          "reason": "'Pains' and 'sorrows' are semantically equivalent in this context."
+        },
+        "ug004": {
+          "lineId": "ug004",
+          "verdict": "FAIL",
+          "reason": "The model translation implies a stronger consequence ('life is sacrificed') which alters the meaning compared to the gold ('a breath escapes')."
+        },
+        "ug005": {
+          "lineId": "ug005",
+          "verdict": "PASS",
+          "reason": "The model translation is semantically equivalent, with minor wording differences."
+        },
+        "ug006": {
+          "lineId": "ug006",
+          "verdict": "PASS",
+          "reason": "The translation is correct and matches the gold_direct."
+        },
+        "ug007": {
+          "lineId": "ug007",
+          "verdict": "FAIL",
+          "reason": "The model translation 'Life of life' does not convey the highest term of endearment like 'soul of my soul' does."
+        },
+        "ug008": {
+          "lineId": "ug008",
+          "verdict": "PASS",
+          "reason": "'Pain of heart' is an acceptable variation of 'heartache'."
+        },
+        "bn001": {
+          "lineId": "bn001",
+          "verdict": "PASS",
+          "reason": "The model translation captures the meaning despite the loss of 'heart' connotation."
+        },
+        "bn002": {
+          "lineId": "bn002",
+          "verdict": "PASS",
+          "reason": "The model translation is acceptable despite missing 'heart'; the context is understood."
+        },
+        "bn003": {
+          "lineId": "bn003",
+          "verdict": "PASS",
+          "reason": "The model correctly conveys the intended emphasis."
+        },
+        "bn004": {
+          "lineId": "bn004",
+          "verdict": "PASS",
+          "reason": "'Desires' is semantically equivalent to 'wants' and conveys the intended meaning."
+        },
+        "bn005": {
+          "lineId": "bn005",
+          "verdict": "PASS",
+          "reason": "The model translation is semantically equivalent."
+        },
+        "bn006": {
+          "lineId": "bn006",
+          "verdict": "PASS",
+          "reason": "The model correctly translates the conditional statement."
+        },
+        "bn007": {
+          "lineId": "bn007",
+          "verdict": "PASS",
+          "reason": "The model correctly translates the phrase including the emphatic meaning."
+        },
+        "bn008": {
+          "lineId": "bn008",
+          "verdict": "PASS",
+          "reason": "The translation captures the essential meaning despite slight wording differences."
+        },
+        "bn009": {
+          "lineId": "bn009",
+          "verdict": "PASS",
+          "reason": "The model translation matches the intended meaning of the gold_direct."
+        },
+        "bn010": {
+          "lineId": "bn010",
+          "verdict": "FAIL",
+          "reason": "'Across the river' does not necessarily imply 'on the other side', leading to a loss in specific locational meaning."
+        },
+        "bn011": {
+          "lineId": "bn011",
+          "verdict": "FAIL",
+          "reason": "The model incorrectly uses 'taste' which does not capture the metaphorical 'pleasure'."
+        },
+        "bn012": {
+          "lineId": "bn012",
+          "verdict": "PASS",
+          "reason": "The model translation captures the essential meaning of the gold_direct."
+        },
+        "ta001": {
+          "lineId": "ta001",
+          "verdict": "PASS",
+          "reason": "'Oh heart' is semantically equivalent to 'O heart'."
+        },
+        "ta002": {
+          "lineId": "ta002",
+          "verdict": "PASS",
+          "reason": "'Oh life' is a valid equivalent for 'O my life / O my soul' in this context."
+        },
+        "ta003": {
+          "lineId": "ta003",
+          "verdict": "PASS",
+          "reason": "'Oh wind, come' is semantically equivalent to 'O wind, come'."
+        },
+        "ta004": {
+          "lineId": "ta004",
+          "verdict": "PASS",
+          "reason": "The translation matches the gold and is correctly understood."
+        },
+        "ta005": {
+          "lineId": "ta005",
+          "verdict": "PASS",
+          "reason": "'Time without you' is a concise equivalent of 'the time when you are not there'."
+        },
+        "ta006": {
+          "lineId": "ta006",
+          "verdict": "PASS",
+          "reason": "'Sky rain' effectively communicates the meaning of 'rain from the sky'."
+        },
+        "ta007": {
+          "lineId": "ta007",
+          "verdict": "PASS",
+          "reason": "'Blooming, blooming' captures the intended meaning without losing emphasis."
+        },
+        "ta008": {
+          "lineId": "ta008",
+          "verdict": "FAIL",
+          "reason": "'Graceful deer' introduces incorrect content not present in the gold_direct."
+        },
+        "pn001": {
+          "lineId": "pn001",
+          "verdict": "FAIL",
+          "reason": "The model leaves 'pasoori' untranslated, losing the meaning of 'difficulty'."
+        },
+        "pn002": {
+          "lineId": "pn002",
+          "verdict": "FAIL",
+          "reason": "The translation inaccurately renders 'helplessness' as 'compulsion', losing the nuance."
+        },
+        "pn003": {
+          "lineId": "pn003",
+          "verdict": "FAIL",
+          "reason": "The model's translation does not convey the endearment and misses part of the phrase."
+        },
+        "pn004": {
+          "lineId": "pn004",
+          "verdict": "PASS",
+          "reason": "Despite a slightly different structure, the essential existential questioning is captured."
+        },
+        "pn005": {
+          "lineId": "pn005",
+          "verdict": "PASS",
+          "reason": "The translation is semantically equivalent despite wording differences."
+        },
+        "pn006": {
+          "lineId": "pn006",
+          "verdict": "PASS",
+          "reason": "The translation is semantically equivalent."
+        },
+        "iz004": {
+          "lineId": "iz004",
+          "verdict": "FAIL",
+          "reason": "The translation 'Moon-faced' changes the direct meaning from 'moon-browed' or 'moon-forehead'."
+        },
+        "iz005": {
+          "lineId": "iz005",
+          "verdict": "PASS",
+          "reason": "The translation is equivalent in meaning."
+        },
+        "iz006": {
+          "lineId": "iz006",
+          "verdict": "PASS",
+          "reason": "The translation captures the essence of the original meaning."
+        },
+        "iz007": {
+          "lineId": "iz007",
+          "verdict": "PASS",
+          "reason": "The translation is semantically equivalent."
+        },
+        "am005": {
+          "lineId": "am005",
+          "verdict": "PASS",
+          "reason": "The translation is semantically equivalent."
+        },
+        "am006": {
+          "lineId": "am006",
+          "verdict": "PASS",
+          "reason": "The translation captures the general understanding without adding possessiveness."
+        },
+        "am007": {
+          "lineId": "am007",
+          "verdict": "FAIL",
+          "reason": "'Happens' implies an event or action rather than indicating the time simple arrival of evening."
+        },
+        "fr005": {
+          "lineId": "fr005",
+          "verdict": "FAIL",
+          "reason": "'When you leave' implies immediate future rather than future perfect as in 'when you will have gone away'."
+        },
+        "fr006": {
+          "lineId": "fr006",
+          "verdict": "PASS",
+          "reason": "The translation is semantically equivalent."
+        },
+        "ff006": {
+          "lineId": "ff006",
+          "verdict": "PASS",
+          "reason": "The translation is semantically equivalent."
+        },
+        "ff007": {
+          "lineId": "ff007",
+          "verdict": "FAIL",
+          "reason": "'Thread' is an under-translation from 'strings' which implies multiple; also misses the poetic nuance."
+        },
+        "ff008": {
+          "lineId": "ff008",
+          "verdict": "FAIL",
+          "reason": "'If there is leisure, then come' suggests a condition outside the person's control, rather than 'come if you have leisure' which is more directly personal."
+        },
+        "ff009": {
+          "lineId": "ff009",
+          "verdict": "PASS",
+          "reason": "The translation maintains the necessary meaning."
+        },
+        "ct005": {
+          "lineId": "ct005",
+          "verdict": "PASS",
+          "reason": "The translation is semantically equivalent."
+        },
+        "ct006": {
+          "lineId": "ct006",
+          "verdict": "PASS",
+          "reason": "The translation is correct and equivalent."
+        },
+        "ct007": {
+          "lineId": "ct007",
+          "verdict": "PASS",
+          "reason": "The translation captures the direct meaning accurately."
+        }
+      }
+    }
+  }
+}

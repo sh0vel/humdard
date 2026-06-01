@@ -273,8 +273,8 @@ For EVERY lyric line produce:
    - surface: exact substring from the target line
    - roman: romanization of that token (follow canonical table; no diacritics)
    - gloss: short English meaning (1–4 words)
-   - spectrum: nearby synonyms showing meaning contrast. Format: "word1=meaning, word2=meaning". E.g. "pyaar=everyday love, prem=pure/Sanskrit, ishq=obsessive longing". Use "" for particles, postpositions, or words with no meaningful synonyms.
-   - songContext: 1–2 sentences explaining WHY the songwriter chose THIS specific word — what literary, emotional, or cultural effect it creates that a close synonym would not. Be specific to this song and line; do not just restate the gloss. Use "" for particles, postpositions, or common grammatical words where no genuine insight can be offered.
+   - spectrum: Learner-oriented, compact, and comparison-based. Prefer short contrast patterns over dictionary explanations. Max 12 words per alternative. Use "" only if the word has no meaningful alternatives.
+   - songContext: Single concise sentence, max 15 words. Explain why this word was chosen in this lyric. Do not restate the gloss or spectrum. For common grammatical particles (ka, ki, ke, se, ne, ko, bhi, hi, to, na, etc.), give a concise learner-focused grammar note instead of leaving empty when helpful.
 
 STRUCTURE:
 - schemaVersion: "1.0.0"
@@ -330,6 +330,42 @@ For each line (lineId | native script | romanization), produce a NATURAL English
 - Must remain semantically equivalent to direct — same meaning, better flow
 - For repeated lines: natural MAY vary slightly in phrasing but never in meaning
 - May smooth English and clarify implied meaning, but MUST NOT introduce new actors, locations, emotions, intentions, relationships, or imagery that do not exist in the original lyric
+- May improve fluency and readability, but must stay as close as possible to the original meaning
+- MUST NOT introduce new tense, certainty, emphasis, time references, motivations, or emotional conclusions that are not explicitly present in the lyric
+- MUST NOT introduce new tense, certainty, frequency, emphasis, emotional conclusions, or implied facts not explicitly present in the lyric
+
+FIDELITY CONSTRAINTS — BAD/GOOD EXAMPLES:
+These are the most common errors. Treat each as a hard rule.
+
+1. No tense shifts — if the original is present tense, stay present tense:
+   BAD: "I was standing here" (added past)
+   GOOD: "I am standing here"
+
+2. No frequency additions — do not add "never", "always", "ever", "still" unless the original says so:
+   BAD: "Where were they, never to return"
+   GOOD: "Where did they go"
+
+3. No emphasis additions — do not add "really", "so", "such", "truly", "completely":
+   BAD: "You were really there"
+   GOOD: "You were there"
+
+4. No invented adjectives — do not add descriptors not in the original:
+   BAD: "A strange beauty" (original: "a beauty")
+   GOOD: "A beauty"
+
+5. No meaning substitution — translate the actual word, not a poetic synonym:
+   BAD: "I was bewitched" (for दीवाना = crazy/devoted)
+   GOOD: "I was lost in you" or "I was devoted"
+   BAD: "I admit" (for माना = granted / even if so)
+   GOOD: "Granted" or "Even so"
+
+6. No new time references — do not add "for a while", "for a moment", "still":
+   BAD: "Stay with me for a while" (original: "stay")
+   GOOD: "Stay with me"
+
+7. No certainty shifts — do not turn questions or uncertainty into statements:
+   BAD: "They were never there" (original asks: "where were they?")
+   GOOD: "Where were they"
 
 GRAMMATICAL INDEPENDENCE — CRITICAL:
 Each line's translation must read as a grammatically self-contained English lyric line.
@@ -652,8 +688,8 @@ Output fields:
 - natural: emotionally faithful, fluent, conversational English
 - tokens: per-word educational breakdown of the TARGET line (6 fields each):
   · id: t001, t002, ... · surface · roman (follow canonical table) · gloss (1–4 words)
-  · spectrum: nearby synonyms with contrast ("pyaar=everyday, ishq=obsessive") or "" for particles/postpositions
-  · songContext: 1–2 sentences on WHY this specific word was chosen over a synonym — what effect it creates in this line. Use "" for particles, postpositions, or common grammatical words.
+  · spectrum: learner-oriented, compact, comparison-based. Short contrast patterns, max 12 words per alternative. Use "" only if no meaningful alternatives exist.
+  · songContext: single concise sentence, max 15 words. Explain why this word was chosen in this lyric. Do not restate the gloss or spectrum. For common grammatical particles (ka, ki, ke, se, ne, ko, bhi, hi, to, na, etc.), give a concise learner-focused grammar note instead of leaving empty when helpful.
 
 ${TRANSLATION_HIERARCHY}
 
@@ -668,6 +704,16 @@ Rules:
 - direct and natural must be fully English — no Devanagari/Arabic/Bengali characters
 - direct and natural must be meaningfully different from each other
 - natural may smooth English and clarify implied meaning, but MUST NOT introduce new actors, locations, emotions, intentions, relationships, or imagery that do not exist in the original lyric
+- natural may improve fluency and readability, but must stay as close as possible to the original meaning
+- natural MUST NOT introduce new tense, certainty, emphasis, time references, motivations, or emotional conclusions that are not explicitly present in the lyric
+- natural MUST NOT introduce new tense, certainty, frequency, emphasis, emotional conclusions, or implied facts not explicitly present in the lyric
+- No tense shifts: present stays present, question stays question — BAD: "was standing" for present; GOOD: "am standing"
+- No frequency additions: do not add "never", "always", "ever" unless the original says so
+- No emphasis additions: do not add "really", "so", "truly", "completely"
+- No invented adjectives or descriptors not present in the original
+- No meaning substitution: translate the actual word — BAD: "bewitched" for दीवाना; GOOD: "devoted" or "lost in you"; BAD: "I admit" for माना; GOOD: "Granted" or "Even so"
+- No new time references: do not add "for a while", "for a moment", "still" unless the original says so
+- No certainty shifts: do not turn questions or uncertainty into statements
 - Never leave South Asian words untranslated
 - Return ONLY the JSON matching the schema`;
 

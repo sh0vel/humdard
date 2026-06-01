@@ -273,7 +273,7 @@ For EVERY lyric line produce:
    - surface: exact substring from the target line
    - roman: romanization of that token (follow canonical table; no diacritics)
    - gloss: short English meaning (1–4 words)
-   - spectrum: Learner-oriented, compact, and comparison-based. Prefer short contrast patterns over dictionary explanations. Max 12 words per alternative. Use "" only if the word has no meaningful alternatives.
+   - spectrum: Learner-oriented, compact, and comparison-based. Prefer short contrast patterns over dictionary explanations. Max 12 words per alternative. Use "" only if the word has no meaningful alternatives. Write alternatives in ROMAN SCRIPT only (no native script characters).
    - songContext: Single concise sentence, max 15 words. Explain why this word was chosen in this lyric. Do not restate the gloss or spectrum. For common grammatical particles (ka, ki, ke, se, ne, ko, bhi, hi, to, na, etc.), give a concise learner-focused grammar note instead of leaving empty when helpful.
 
 STRUCTURE:
@@ -688,7 +688,7 @@ Output fields:
 - natural: emotionally faithful, fluent, conversational English
 - tokens: per-word educational breakdown of the TARGET line (6 fields each):
   · id: t001, t002, ... · surface · roman (follow canonical table) · gloss (1–4 words)
-  · spectrum: learner-oriented, compact, comparison-based. Short contrast patterns, max 12 words per alternative. Use "" only if no meaningful alternatives exist.
+  · spectrum: learner-oriented, compact, comparison-based. Short contrast patterns, max 12 words per alternative. Use "" only if no meaningful alternatives exist. Roman script only — no native script characters.
   · songContext: single concise sentence, max 15 words. Explain why this word was chosen in this lyric. Do not restate the gloss or spectrum. For common grammatical particles (ka, ki, ke, se, ne, ko, bhi, hi, to, na, etc.), give a concise learner-focused grammar note instead of leaving empty when helpful.
 
 ${TRANSLATION_HIERARCHY}

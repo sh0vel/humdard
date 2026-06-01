@@ -602,31 +602,37 @@ async function generateTokens(
   titleHint?: string,
   artistHint?: string
 ): Promise<{ map: Map<string, import('./types').LyricToken[]>; promptTokens: number; completionTokens: number }> {
-  const lineTable = lines
-    .map(l => `${l.lineId} | ${l.target} | ${l.roman}`)
-    .join('\n');
+  const songCtx = titleHint || artistHint
+    ? `Song: "${titleHint ?? ''}"${artistHint ? ` by ${artistHint}` : ''}\n\n`
+    : '';
 
-  let userPrompt = '';
-  if (titleHint || artistHint) {
-    userPrompt += `Song: "${titleHint ?? ''}"${artistHint ? ` by ${artistHint}` : ''}\n\n`;
-  }
-  userPrompt += `Lines (lineId | native script | romanization):\n${lineTable}\n\n`;
-  userPrompt += 'Produce tokens for every line.';
-
-  const { result, promptTokens, completionTokens } = await callOpenAI<{ lines: { lineId: string; tokens: import('./types').LyricToken[] }[] }>(
-    env,
-    [
-      { role: 'system', content: TOKEN_SYSTEM_PROMPT },
-      { role: 'user', content: userPrompt },
-    ],
-    TOKEN_SCHEMA,
-    'tokens',
-    'gpt-4o'
+  // One call per line, all fired simultaneously via Promise.all.
+  // A single monolithic call for a full song takes ~80s; parallel single-line
+  // calls are bounded by the slowest line (~8s).
+  const results = await Promise.all(
+    lines.map(l => {
+      const userPrompt = `${songCtx}${l.lineId} | ${l.target} | ${l.roman}\n\nProduce tokens for this line.`;
+      return callOpenAI<{ lines: { lineId: string; tokens: import('./types').LyricToken[] }[] }>(
+        env,
+        [
+          { role: 'system', content: TOKEN_SYSTEM_PROMPT },
+          { role: 'user', content: userPrompt },
+        ],
+        TOKEN_SCHEMA,
+        'tokens',
+        'gpt-4o'
+      );
+    })
   );
 
-
   const map = new Map<string, import('./types').LyricToken[]>();
-  for (const l of result.lines) map.set(l.lineId, l.tokens);
+  let promptTokens = 0;
+  let completionTokens = 0;
+  for (const { result, promptTokens: p, completionTokens: c } of results) {
+    promptTokens += p;
+    completionTokens += c;
+    for (const l of result.lines) map.set(l.lineId, l.tokens);
+  }
   return { map, promptTokens, completionTokens };
 }
 

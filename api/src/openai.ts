@@ -305,7 +305,7 @@ For each token produce SIX fields:
 - surface: exact substring from the native script line
 - roman: romanization of that token — follow canonical table, no diacritics
 - gloss: short English meaning (1–4 words)
-- definition: textbook dictionary entry. Include: part of speech, full core meaning, origin/register note (Sanskrit/Arabic/Persian root if notable), and how native speakers actually use it vs. a learner's expectation. 2–4 sentences. Do not reference the specific song or line — this is a general lexical entry.
+- definition: learner-focused lexical entry. Include part of speech, core meaning (1–2 sentences), a register/origin note only if genuinely useful (e.g. Persian, Sanskrit, Urdu literary), native usage insight explaining how speakers actually use the word especially where it differs from the English gloss, and optionally a short common collocation. Teach the word as a living part of the language — prioritize nuance, semantic range, and what would surprise a learner. 3–6 sentences. Do not reference this song or lyric. Avoid anatomical descriptions, encyclopedic detail, or overly formal language.
 - spectrum: Nearby synonyms/alternatives a learner may encounter. Learner-oriented, compact, comparison-based. Short contrast patterns, max 12 words per alternative. Roman script only — no native script characters. Use "" only if no meaningful alternatives exist.
 - songContext: Single concise sentence, max 15 words. Explain why THIS word was chosen in this lyric — its tone, imagery, or emotional effect. Do not restate the gloss or spectrum. For grammatical particles (ka, ki, ke, se, ne, ko, bhi, hi, to, na, etc.), give a concise learner-focused grammar note instead.
 
@@ -444,9 +444,10 @@ async function callOpenAI<T>(
   env: Env,
   messages: { role: 'system' | 'user'; content: string }[],
   schema: object,
-  schemaName: string
+  schemaName: string,
+  modelOverride?: string
 ): Promise<{ result: T; promptTokens: number; completionTokens: number }> {
-  const model = env.OPENAI_MODEL || DEFAULT_MODEL;
+  const model = modelOverride ?? env.OPENAI_MODEL ?? DEFAULT_MODEL;
   const body: OpenAIRequest = {
     model,
     messages,
@@ -610,7 +611,8 @@ async function generateTokens(
       { role: 'user', content: userPrompt },
     ],
     TOKEN_SCHEMA,
-    'tokens'
+    'tokens',
+    'gpt-4o'
   );
 
 

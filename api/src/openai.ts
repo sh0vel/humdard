@@ -454,6 +454,7 @@ async function callOpenAI<T>(
     },
   };
 
+  const t0 = Date.now();
   const response = await fetch(OPENAI_API_URL, {
     method: 'POST',
     headers: {
@@ -473,6 +474,9 @@ async function callOpenAI<T>(
   if (!choice) throw new Error('No choices from OpenAI');
   if (choice.message.refusal) throw new Error(`OpenAI refused: ${choice.message.refusal}`);
   if (!choice.message.content) throw new Error('No content from OpenAI');
+
+  const ms = Date.now() - t0;
+  console.log(`[openai:${schemaName}] ${ms}ms | prompt=${data.usage?.prompt_tokens ?? 0} completion=${data.usage?.completion_tokens ?? 0}`);
 
   return {
     result: JSON.parse(choice.message.content) as T,
@@ -524,7 +528,6 @@ async function generateBase(
     'lyric_lesson_base'
   );
 
-  console.log(`[base] ${promptTokens}+${completionTokens} tokens`);
   return { base: result, promptTokens, completionTokens };
 }
 
@@ -571,7 +574,6 @@ async function generateTranslations(
     `translation_${type}`
   );
 
-  console.log(`[${type}] ${promptTokens}+${completionTokens} tokens`);
 
   const map = new Map<string, string>();
   for (const l of result.lines) map.set(l.lineId, l.translation);
@@ -609,7 +611,6 @@ async function generateTokens(
     'tokens'
   );
 
-  console.log(`[tokens] ${promptTokens}+${completionTokens} tokens`);
 
   const map = new Map<string, import('./types').LyricToken[]>();
   for (const l of result.lines) map.set(l.lineId, l.tokens);

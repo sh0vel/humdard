@@ -306,7 +306,7 @@ For each token produce SIX fields:
 - roman: romanization of that token — follow canonical table, no diacritics
 - gloss: short English meaning (1–4 words)
 - definition: learner-focused lexical entry. Include part of speech, core meaning (1–2 sentences), a register/origin note only if genuinely useful (e.g. Persian, Sanskrit, Urdu literary), native usage insight explaining how speakers actually use the word especially where it differs from the English gloss, and optionally a short common collocation. Teach the word as a living part of the language — prioritize nuance, semantic range, and what would surprise a learner. 3–6 sentences. Do not reference this song or lyric. Avoid anatomical descriptions, encyclopedic detail, or overly formal language.
-- spectrum: Nearby synonyms/alternatives a learner may encounter. Learner-oriented, compact, comparison-based. Short contrast patterns, max 12 words per alternative. Roman script only — no native script characters. Use "" only if no meaningful alternatives exist.
+- spectrum: Nearby synonyms/alternatives. Format EXACTLY as semicolon-separated "word = meaning" pairs: "jaana = to go; nikalna = to exit; chalna = to walk". Roman script only — no native script characters. 2–4 entries. Use "" only if no meaningful alternatives exist.
 - songContext: Single concise sentence, max 15 words. Explain why THIS word was chosen in this lyric — its tone, imagery, or emotional effect. Do not restate the gloss or spectrum. For grammatical particles (ka, ki, ke, se, ne, ko, bhi, hi, to, na, etc.), give a concise learner-focused grammar note instead.
 
 RULES:
@@ -778,7 +778,7 @@ Output fields:
 - tokens: per-word educational breakdown of the TARGET line (7 fields each):
   · id: t001, t002, ... · surface · roman (follow canonical table) · gloss (1–4 words)
   · definition: textbook dictionary entry — part of speech, full core meaning, origin/register note, how native speakers use it. 2–4 sentences. General lexical entry, not specific to this song.
-  · spectrum: learner-oriented, compact, comparison-based. Short contrast patterns, max 12 words per alternative. Use "" only if no meaningful alternatives exist. Roman script only — no native script characters.
+  · spectrum: Nearby synonyms. Format EXACTLY as semicolon-separated "word = meaning" pairs: "jaana = to go; nikalna = to exit". Roman script only. 2–4 entries. Use "" only if no meaningful alternatives exist.
   · songContext: single concise sentence, max 15 words. Explain why this word was chosen in this lyric. Do not restate the gloss or spectrum. For common grammatical particles (ka, ki, ke, se, ne, ko, bhi, hi, to, na, etc.), give a concise learner-focused grammar note instead of leaving empty when helpful.
 
 ${TRANSLATION_HIERARCHY}

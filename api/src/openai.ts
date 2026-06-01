@@ -123,10 +123,11 @@ const TOKEN_SCHEMA = {
                 surface:     { type: 'string' },
                 roman:       { type: 'string' },
                 gloss:       { type: 'string' },
+                definition:  { type: 'string' },
                 spectrum:    { type: 'string' },
                 songContext: { type: 'string' },
               },
-              required: ['id', 'surface', 'roman', 'gloss', 'spectrum', 'songContext'],
+              required: ['id', 'surface', 'roman', 'gloss', 'definition', 'spectrum', 'songContext'],
               additionalProperties: false,
             },
           },
@@ -304,6 +305,7 @@ For each token produce SIX fields:
 - surface: exact substring from the native script line
 - roman: romanization of that token — follow canonical table, no diacritics
 - gloss: short English meaning (1–4 words)
+- definition: textbook dictionary entry. Include: part of speech, full core meaning, origin/register note (Sanskrit/Arabic/Persian root if notable), and how native speakers actually use it vs. a learner's expectation. 2–4 sentences. Do not reference the specific song or line — this is a general lexical entry.
 - spectrum: Nearby synonyms/alternatives a learner may encounter. Learner-oriented, compact, comparison-based. Short contrast patterns, max 12 words per alternative. Roman script only — no native script characters. Use "" only if no meaningful alternatives exist.
 - songContext: Single concise sentence, max 15 words. Explain why THIS word was chosen in this lyric — its tone, imagery, or emotional effect. Do not restate the gloss or spectrum. For grammatical particles (ka, ki, ke, se, ne, ko, bhi, hi, to, na, etc.), give a concise learner-focused grammar note instead.
 
@@ -714,10 +716,11 @@ const LINE_RETRANSLATE_SCHEMA = {
           surface:     { type: 'string' },
           roman:       { type: 'string' },
           gloss:       { type: 'string' },
+          definition:  { type: 'string' },
           spectrum:    { type: 'string' },
           songContext: { type: 'string' },
         },
-        required: ['id', 'surface', 'roman', 'gloss', 'spectrum', 'songContext'],
+        required: ['id', 'surface', 'roman', 'gloss', 'definition', 'spectrum', 'songContext'],
         additionalProperties: false,
       },
     },
@@ -754,8 +757,9 @@ Output fields:
 - wordByWord: token-order English gloss, intentionally ungrammatical, lowercase, compact
 - direct: literal + grammatical English, plain and neutral
 - natural: emotionally faithful, fluent, conversational English
-- tokens: per-word educational breakdown of the TARGET line (6 fields each):
+- tokens: per-word educational breakdown of the TARGET line (7 fields each):
   · id: t001, t002, ... · surface · roman (follow canonical table) · gloss (1–4 words)
+  · definition: textbook dictionary entry — part of speech, full core meaning, origin/register note, how native speakers use it. 2–4 sentences. General lexical entry, not specific to this song.
   · spectrum: learner-oriented, compact, comparison-based. Short contrast patterns, max 12 words per alternative. Use "" only if no meaningful alternatives exist. Roman script only — no native script characters.
   · songContext: single concise sentence, max 15 words. Explain why this word was chosen in this lyric. Do not restate the gloss or spectrum. For common grammatical particles (ka, ki, ke, se, ne, ko, bhi, hi, to, na, etc.), give a concise learner-focused grammar note instead of leaving empty when helpful.
 

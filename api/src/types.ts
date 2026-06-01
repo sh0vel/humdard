@@ -145,8 +145,9 @@ export interface LyricToken {
   surface: string;
   roman: string;
   gloss: string;
-  spectrum: string;    // nearby synonyms with contrast, e.g. "pyaar=everyday, ishq=obsessive" — "" for particles
-  songContext: string; // why songwriter chose THIS word over a synonym — "" for particles/grammatical words
+  definition: string;  // textbook dictionary entry: part of speech, full meaning, origin/register note
+  spectrum: string;    // nearby synonyms with contrast — "" for particles
+  songContext: string; // why songwriter chose THIS word in this lyric — "" for particles/grammatical words
 }
 
 // ============================================================================

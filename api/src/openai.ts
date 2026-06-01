@@ -583,7 +583,8 @@ async function generateTranslations(
       { role: 'user', content: userPrompt },
     ],
     TRANSLATION_SCHEMA,
-    `translation_${type}`
+    `translation_${type}`,
+    'gpt-5.5'
   );
 
 

@@ -664,31 +664,46 @@ export async function generateLyricLesson(
     s.lines.map(l => ({ lineId: l.lineId, target: l.text.target, roman: l.text.roman }))
   );
 
-  // Phase 2: direct + natural + tokens all in parallel
+  // Deduplicate by target content — repeated chorus lines don't need separate API calls.
+  // canonicalId maps every lineId → the lineId of the first occurrence with that content.
+  const firstSeen = new Map<string, string>(); // target → canonical lineId
+  const uniqueLines: FlatLine[] = [];
+  for (const line of flatLines) {
+    if (!firstSeen.has(line.target)) {
+      firstSeen.set(line.target, line.lineId);
+      uniqueLines.push(line);
+    }
+  }
+  const canonicalId = new Map<string, string>();
+  for (const line of flatLines) canonicalId.set(line.lineId, firstSeen.get(line.target)!);
+
+  // Phase 2: direct + natural + tokens all in parallel (only unique lines)
   const [
     { map: directMap, promptTokens: p2d, completionTokens: c2d },
     { map: naturalMap, promptTokens: p2n, completionTokens: c2n },
     { map: tokenMap,   promptTokens: p2t, completionTokens: c2t },
   ] = await Promise.all([
-    generateTranslations(env, flatLines, 'direct', titleHint, artistHint),
-    generateTranslations(env, flatLines, 'natural', titleHint, artistHint),
-    generateTokens(env, flatLines, titleHint, artistHint),
+    generateTranslations(env, uniqueLines, 'direct', titleHint, artistHint),
+    generateTranslations(env, uniqueLines, 'natural', titleHint, artistHint),
+    generateTokens(env, uniqueLines, titleHint, artistHint),
   ]);
 
-  // Merge everything into the full lesson — derive wordByWord from token glosses
+  // Merge everything into the full lesson — derive wordByWord from token glosses.
+  // Duplicate lines look up results via their canonical lineId.
   const lesson: LyricLesson = {
     ...base,
     sections: base.sections.map(section => ({
       ...section,
       lines: section.lines.map(line => {
-        const tokens = tokenMap.get(line.lineId) ?? [];
+        const cid = canonicalId.get(line.lineId) ?? line.lineId;
+        const tokens = tokenMap.get(cid) ?? [];
         return {
           ...line,
           text: {
             ...line.text,
             wordByWord: tokens.map(t => t.gloss).join(' '),
-            direct:     directMap.get(line.lineId)  ?? '',
-            natural:    naturalMap.get(line.lineId) ?? '',
+            direct:     directMap.get(cid) ?? '',
+            natural:    naturalMap.get(cid) ?? '',
           },
           tokens,
         };

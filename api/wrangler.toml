@@ -39,10 +39,38 @@ vars = { ALLOWED_ORIGINS = "*", OPENAI_MODEL = "gpt-4o" }
 # Secrets must be set once: npx wrangler secret put OPENAI_API_KEY --env preview
 [env.preview]
 name = "humdard-lyric-api-preview"
-vars = { ALLOWED_ORIGINS = "*", OPENAI_MODEL = "gpt-4o" }
+vars = { ALLOWED_ORIGINS = "*", OPENAI_MODEL = "gpt-4o", SPOTIFY_CLIENT_ID = "55c2275c63634074aa13b4d40e359e6f" }
+
+[[env.preview.r2_buckets]]
+binding = "BUCKET"
+bucket_name = "lyric-lessons"
+
+[[env.preview.queues.producers]]
+queue = "lyric-generation"
+binding = "GENERATION_QUEUE"
+
+[[env.preview.queues.consumers]]
+queue = "lyric-generation"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 2
 
 # Production — deploys to humdard-lyric-api.<account>.workers.dev
 # Usage: npx wrangler deploy --env production
 [env.production]
 name = "humdard-lyric-api"
-vars = { ALLOWED_ORIGINS = "*", OPENAI_MODEL = "gpt-4o" }
+vars = { ALLOWED_ORIGINS = "*", OPENAI_MODEL = "gpt-4o", SPOTIFY_CLIENT_ID = "55c2275c63634074aa13b4d40e359e6f" }
+
+[[env.production.r2_buckets]]
+binding = "BUCKET"
+bucket_name = "lyric-lessons"
+
+[[env.production.queues.producers]]
+queue = "lyric-generation"
+binding = "GENERATION_QUEUE"
+
+[[env.production.queues.consumers]]
+queue = "lyric-generation"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 2

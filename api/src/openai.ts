@@ -265,8 +265,11 @@ const BASE_SYSTEM_PROMPT = `You are an expert language-learning content creator 
 AUTO-DETECT the primary language from the lyrics and output in the correct NATIVE SCRIPT:
 - Hindi (Bollywood, Hindustani, Hindi-leaning vocabulary) → Devanagari, iso: "hi", script: "Devanagari"
 - Urdu (Pakistani music, ghazal tradition, heavy Persian/Arabic loanwords) → Arabic/Nastaliq, iso: "ur", script: "Arabic"
+- Punjabi → Gurmukhi, iso: "pa", script: "Gurmukhi"
 - Bangla/Bengali → Bengali script, iso: "bn", script: "Bengali"
 - Ambiguous Hindustani → default to Devanagari (Hindi)
+
+MULTILINGUAL SONGS: Some songs mix scripts (e.g. Hindi verses in Devanagari + Punjabi chorus in Gurmukhi). Process EVERY line regardless of script. Never stop at a script boundary — all input lines must appear in the output.
 
 ${ROMANIZATION_TABLE}
 
@@ -306,11 +309,12 @@ For each token produce SIX fields:
 - roman: romanization of that token — follow canonical table, no diacritics
 - gloss: short English meaning (1–4 words)
 - definition: learner-focused lexical entry. Include part of speech, core meaning (1–2 sentences), a register/origin note only if genuinely useful (e.g. Persian, Sanskrit, Urdu literary), native usage insight explaining how speakers actually use the word especially where it differs from the English gloss, and optionally a short common collocation. Teach the word as a living part of the language — prioritize nuance, semantic range, and what would surprise a learner. 3–6 sentences. Do not reference this song or lyric. Avoid anatomical descriptions, encyclopedic detail, or overly formal language.
-- spectrum: Nearby synonyms/alternatives a learner may encounter. Learner-oriented, compact, comparison-based. Short contrast patterns, max 12 words per alternative. Roman script only — no native script characters. Use "" only if no meaningful alternatives exist.
+- spectrum: Nearby synonyms/alternatives. Format EXACTLY as semicolon-separated "word = meaning" pairs: "jaana = to go; nikalna = to exit; chalna = to walk". Roman script only — no native script characters. 2–4 entries. Use "" only if no meaningful alternatives exist.
 - songContext: Single concise sentence, max 15 words. Explain why THIS word was chosen in this lyric — its tone, imagery, or emotional effect. Do not restate the gloss or spectrum. For grammatical particles (ka, ki, ke, se, ne, ko, bhi, hi, to, na, etc.), give a concise learner-focused grammar note instead.
 
 RULES:
 - Every word in the line must have exactly one token (including particles)
+- Hyphenated compounds (e.g. dil-e-bechain, dard-o-sitam, yaar-e-man, shab-o-roz) are ONE token — never split on hyphens, izāfat (-e-), or conjunctive (-o-). Gloss and surface cover the full compound.
 - surface must be an exact substring of the native script target
 - Return ONLY the JSON matching the schema`;
 
@@ -537,7 +541,8 @@ async function generateBase(
       { role: 'user', content: userPrompt },
     ],
     BASE_LESSON_SCHEMA,
-    'lyric_lesson_base'
+    'lyric_lesson_base',
+    'gpt-5.5'
   );
 
   return { base: result, promptTokens, completionTokens };
@@ -583,7 +588,8 @@ async function generateTranslations(
       { role: 'user', content: userPrompt },
     ],
     TRANSLATION_SCHEMA,
-    `translation_${type}`
+    `translation_${type}`,
+    'gpt-5.5'
   );
 
 
@@ -602,31 +608,37 @@ async function generateTokens(
   titleHint?: string,
   artistHint?: string
 ): Promise<{ map: Map<string, import('./types').LyricToken[]>; promptTokens: number; completionTokens: number }> {
-  const lineTable = lines
-    .map(l => `${l.lineId} | ${l.target} | ${l.roman}`)
-    .join('\n');
+  const songCtx = titleHint || artistHint
+    ? `Song: "${titleHint ?? ''}"${artistHint ? ` by ${artistHint}` : ''}\n\n`
+    : '';
 
-  let userPrompt = '';
-  if (titleHint || artistHint) {
-    userPrompt += `Song: "${titleHint ?? ''}"${artistHint ? ` by ${artistHint}` : ''}\n\n`;
-  }
-  userPrompt += `Lines (lineId | native script | romanization):\n${lineTable}\n\n`;
-  userPrompt += 'Produce tokens for every line.';
-
-  const { result, promptTokens, completionTokens } = await callOpenAI<{ lines: { lineId: string; tokens: import('./types').LyricToken[] }[] }>(
-    env,
-    [
-      { role: 'system', content: TOKEN_SYSTEM_PROMPT },
-      { role: 'user', content: userPrompt },
-    ],
-    TOKEN_SCHEMA,
-    'tokens',
-    'gpt-4o'
+  // One call per line, all fired simultaneously via Promise.all.
+  // A single monolithic call for a full song takes ~80s; parallel single-line
+  // calls are bounded by the slowest line (~8s).
+  const results = await Promise.all(
+    lines.map(l => {
+      const userPrompt = `${songCtx}${l.lineId} | ${l.target} | ${l.roman}\n\nProduce tokens for this line.`;
+      return callOpenAI<{ lines: { lineId: string; tokens: import('./types').LyricToken[] }[] }>(
+        env,
+        [
+          { role: 'system', content: TOKEN_SYSTEM_PROMPT },
+          { role: 'user', content: userPrompt },
+        ],
+        TOKEN_SCHEMA,
+        'tokens',
+        'gpt-4o'
+      ).catch(() => ({ result: { lines: [] }, promptTokens: 0, completionTokens: 0 }));
+    })
   );
 
-
   const map = new Map<string, import('./types').LyricToken[]>();
-  for (const l of result.lines) map.set(l.lineId, l.tokens);
+  let promptTokens = 0;
+  let completionTokens = 0;
+  for (const { result, promptTokens: p, completionTokens: c } of results) {
+    promptTokens += p;
+    completionTokens += c;
+    for (const l of result.lines) map.set(l.lineId, l.tokens);
+  }
   return { map, promptTokens, completionTokens };
 }
 
@@ -656,31 +668,46 @@ export async function generateLyricLesson(
     s.lines.map(l => ({ lineId: l.lineId, target: l.text.target, roman: l.text.roman }))
   );
 
-  // Phase 2: direct + natural + tokens all in parallel
+  // Deduplicate by target content — repeated chorus lines don't need separate API calls.
+  // canonicalId maps every lineId → the lineId of the first occurrence with that content.
+  const firstSeen = new Map<string, string>(); // target → canonical lineId
+  const uniqueLines: FlatLine[] = [];
+  for (const line of flatLines) {
+    if (!firstSeen.has(line.target)) {
+      firstSeen.set(line.target, line.lineId);
+      uniqueLines.push(line);
+    }
+  }
+  const canonicalId = new Map<string, string>();
+  for (const line of flatLines) canonicalId.set(line.lineId, firstSeen.get(line.target)!);
+
+  // Phase 2: direct + natural + tokens all in parallel (only unique lines)
   const [
     { map: directMap, promptTokens: p2d, completionTokens: c2d },
     { map: naturalMap, promptTokens: p2n, completionTokens: c2n },
     { map: tokenMap,   promptTokens: p2t, completionTokens: c2t },
   ] = await Promise.all([
-    generateTranslations(env, flatLines, 'direct', titleHint, artistHint),
-    generateTranslations(env, flatLines, 'natural', titleHint, artistHint),
-    generateTokens(env, flatLines, titleHint, artistHint),
+    generateTranslations(env, uniqueLines, 'direct', titleHint, artistHint),
+    generateTranslations(env, uniqueLines, 'natural', titleHint, artistHint),
+    generateTokens(env, uniqueLines, titleHint, artistHint),
   ]);
 
-  // Merge everything into the full lesson — derive wordByWord from token glosses
+  // Merge everything into the full lesson — derive wordByWord from token glosses.
+  // Duplicate lines look up results via their canonical lineId.
   const lesson: LyricLesson = {
     ...base,
     sections: base.sections.map(section => ({
       ...section,
       lines: section.lines.map(line => {
-        const tokens = tokenMap.get(line.lineId) ?? [];
+        const cid = canonicalId.get(line.lineId) ?? line.lineId;
+        const tokens = tokenMap.get(cid) ?? [];
         return {
           ...line,
           text: {
             ...line.text,
             wordByWord: tokens.map(t => t.gloss).join(' '),
-            direct:     directMap.get(line.lineId)  ?? '',
-            natural:    naturalMap.get(line.lineId) ?? '',
+            direct:     directMap.get(cid) ?? '',
+            natural:    naturalMap.get(cid) ?? '',
           },
           tokens,
         };
@@ -771,7 +798,7 @@ Output fields:
 - tokens: per-word educational breakdown of the TARGET line (7 fields each):
   · id: t001, t002, ... · surface · roman (follow canonical table) · gloss (1–4 words)
   · definition: textbook dictionary entry — part of speech, full core meaning, origin/register note, how native speakers use it. 2–4 sentences. General lexical entry, not specific to this song.
-  · spectrum: learner-oriented, compact, comparison-based. Short contrast patterns, max 12 words per alternative. Use "" only if no meaningful alternatives exist. Roman script only — no native script characters.
+  · spectrum: Nearby synonyms. Format EXACTLY as semicolon-separated "word = meaning" pairs: "jaana = to go; nikalna = to exit". Roman script only. 2–4 entries. Use "" only if no meaningful alternatives exist.
   · songContext: single concise sentence, max 15 words. Explain why this word was chosen in this lyric. Do not restate the gloss or spectrum. For common grammatical particles (ka, ki, ke, se, ne, ko, bhi, hi, to, na, etc.), give a concise learner-focused grammar note instead of leaving empty when helpful.
 
 ${TRANSLATION_HIERARCHY}

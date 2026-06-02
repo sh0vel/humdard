@@ -306,7 +306,7 @@ ${ROMANIZATION_TABLE}
 For each token produce SIX fields:
 - id: "t001", "t002", ... (restart per line)
 - surface: exact substring from the native script line
-- roman: romanization of that token — follow canonical table, no diacritics
+- roman: copy the exact spelling from the line's roman field above — do NOT re-romanize. Each token's roman must be a single word (no spaces) as it appears verbatim in the line's romanization.
 - gloss: short English meaning (1–4 words)
 - definition: learner-focused lexical entry. Include part of speech, core meaning (1–2 sentences), a register/origin note only if genuinely useful (e.g. Persian, Sanskrit, Urdu literary), native usage insight explaining how speakers actually use the word especially where it differs from the English gloss, and optionally a short common collocation. Teach the word as a living part of the language — prioritize nuance, semantic range, and what would surprise a learner. 3–6 sentences. Do not reference this song or lyric. Avoid anatomical descriptions, encyclopedic detail, or overly formal language.
 - spectrum: Nearby synonyms/alternatives. Format EXACTLY as semicolon-separated "word = meaning" pairs: "jaana = to go; nikalna = to exit; chalna = to walk". Roman script only — no native script characters. 2–4 entries. Use "" only if no meaningful alternatives exist.
@@ -316,6 +316,7 @@ RULES:
 - Every word in the line must have exactly one token (including particles)
 - Hyphenated compounds (e.g. dil-e-bechain, dard-o-sitam, yaar-e-man, shab-o-roz) are ONE token — never split on hyphens, izāfat (-e-), or conjunctive (-o-). Gloss and surface cover the full compound.
 - surface must be an exact substring of the native script target
+- Do NOT produce tokens for punctuation marks (?, !, ,, ., …) — lyric words only
 - Return ONLY the JSON matching the schema`;
 
 const TRANSLATION_HIERARCHY = `TRANSLATION HIERARCHY

@@ -567,7 +567,7 @@ async function generateTranslations(
   type: TranslationType,
   titleHint?: string,
   artistHint?: string
-): Promise<{ map: Map<string, string>; promptTokens: number; completionTokens: number }> {
+): Promise<{ map: Map<string, string>; errors: import('./types').GenerationError[]; promptTokens: number; completionTokens: number }> {
   const systemPrompt =
     type === 'direct' ? makeDirectPrompt() : makeNaturalPrompt();
 
@@ -582,21 +582,36 @@ async function generateTranslations(
   userPrompt += `Lines (lineId | native script | romanization):\n${lineTable}\n\n`;
   userPrompt += `Produce the ${type} translation for each lineId.`;
 
-  const { result, promptTokens, completionTokens } = await callOpenAI<{ lines: { lineId: string; translation: string }[] }>(
-    env,
-    [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
-    ],
-    TRANSLATION_SCHEMA,
-    `translation_${type}`,
-    'gpt-5.5'
-  );
+  let result: { lines: { lineId: string; translation: string }[] };
+  let promptTokens = 0;
+  let completionTokens = 0;
+  const errors: import('./types').GenerationError[] = [];
 
+  try {
+    ({ result, promptTokens, completionTokens } = await callOpenAI<{ lines: { lineId: string; translation: string }[] }>(
+      env,
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      TRANSLATION_SCHEMA,
+      `translation_${type}`,
+      'gpt-5.5'
+    ));
+  } catch (e) {
+    for (const l of lines) errors.push({ lineId: l.lineId, type, error: String(e) });
+    return { map: new Map(), errors, promptTokens: 0, completionTokens: 0 };
+  }
 
   const map = new Map<string, string>();
   for (const l of result.lines) map.set(l.lineId, l.translation);
-  return { map, promptTokens, completionTokens };
+
+  // Any lineId the model silently dropped
+  for (const l of lines) {
+    if (!map.has(l.lineId)) errors.push({ lineId: l.lineId, type, error: 'missing from response' });
+  }
+
+  return { map, errors, promptTokens, completionTokens };
 }
 
 // ============================================================================
@@ -608,14 +623,11 @@ async function generateTokens(
   lines: FlatLine[],
   titleHint?: string,
   artistHint?: string
-): Promise<{ map: Map<string, import('./types').LyricToken[]>; promptTokens: number; completionTokens: number }> {
+): Promise<{ map: Map<string, import('./types').LyricToken[]>; errors: import('./types').GenerationError[]; promptTokens: number; completionTokens: number }> {
   const songCtx = titleHint || artistHint
     ? `Song: "${titleHint ?? ''}"${artistHint ? ` by ${artistHint}` : ''}\n\n`
     : '';
 
-  // One call per line, all fired simultaneously via Promise.all.
-  // A single monolithic call for a full song takes ~80s; parallel single-line
-  // calls are bounded by the slowest line (~8s).
   const results = await Promise.all(
     lines.map(l => {
       const userPrompt = `${songCtx}${l.lineId} | ${l.target} | ${l.roman}\n\nProduce tokens for this line.`;
@@ -628,19 +640,26 @@ async function generateTokens(
         TOKEN_SCHEMA,
         'tokens',
         'gpt-4o'
-      ).catch(() => ({ result: { lines: [] }, promptTokens: 0, completionTokens: 0 }));
+      )
+        .then(r => ({ ...r, lineId: l.lineId, failed: false, errorMsg: '' }))
+        .catch((e: unknown) => ({ result: { lines: [] as { lineId: string; tokens: import('./types').LyricToken[] }[] }, promptTokens: 0, completionTokens: 0, lineId: l.lineId, failed: true, errorMsg: String(e) }));
     })
   );
 
   const map = new Map<string, import('./types').LyricToken[]>();
+  const errors: import('./types').GenerationError[] = [];
   let promptTokens = 0;
   let completionTokens = 0;
-  for (const { result, promptTokens: p, completionTokens: c } of results) {
-    promptTokens += p;
-    completionTokens += c;
-    for (const l of result.lines) map.set(l.lineId, l.tokens);
+  for (const r of results) {
+    promptTokens += r.promptTokens;
+    completionTokens += r.completionTokens;
+    if (r.failed) {
+      errors.push({ lineId: r.lineId, type: 'tokens', error: r.errorMsg });
+    } else {
+      for (const l of r.result.lines) map.set(l.lineId, l.tokens);
+    }
   }
-  return { map, promptTokens, completionTokens };
+  return { map, errors, promptTokens, completionTokens };
 }
 
 // ============================================================================
@@ -684,14 +703,16 @@ export async function generateLyricLesson(
 
   // Phase 2: direct + natural + tokens all in parallel (only unique lines)
   const [
-    { map: directMap, promptTokens: p2d, completionTokens: c2d },
-    { map: naturalMap, promptTokens: p2n, completionTokens: c2n },
-    { map: tokenMap,   promptTokens: p2t, completionTokens: c2t },
+    { map: directMap, errors: errsD, promptTokens: p2d, completionTokens: c2d },
+    { map: naturalMap, errors: errsN, promptTokens: p2n, completionTokens: c2n },
+    { map: tokenMap,   errors: errsT, promptTokens: p2t, completionTokens: c2t },
   ] = await Promise.all([
     generateTranslations(env, uniqueLines, 'direct', titleHint, artistHint),
     generateTranslations(env, uniqueLines, 'natural', titleHint, artistHint),
     generateTokens(env, uniqueLines, titleHint, artistHint),
   ]);
+
+  const allErrors = [...errsD, ...errsN, ...errsT];
 
   // Merge everything into the full lesson — derive wordByWord from token glosses.
   // Duplicate lines look up results via their canonical lineId.
@@ -714,6 +735,7 @@ export async function generateLyricLesson(
         };
       }),
     })),
+    ...(allErrors.length > 0 ? { generationErrors: allErrors } : {}),
   };
 
   normalizeRomanization(lesson);

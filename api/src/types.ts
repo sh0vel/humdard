@@ -100,6 +100,12 @@ export interface SongMetadata {
 // LyricLesson Schema
 // ============================================================================
 
+export interface GenerationError {
+  lineId: string;
+  type: 'tokens' | 'direct' | 'natural';
+  error: string;
+}
+
 export interface LyricLesson {
   schemaVersion: string;
   lessonId: string;
@@ -117,6 +123,7 @@ export interface LyricLesson {
     artist?: string;
   };
   sections: LyricSection[];
+  generationErrors?: GenerationError[];
 }
 
 export interface LyricSection {

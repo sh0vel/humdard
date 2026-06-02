@@ -461,8 +461,10 @@ async function handleRetranslateSong(request: Request, env: Env, songId: string)
     if (!song) return jsonResponse({ error: { code: 'NOT_FOUND', message: 'Song not found' } }, 404);
 
     const meta = await getMeta(env, songId);
+    // Use roman (uniform Latin) not target (script can switch e.g. Devanagari → Gurmukhi
+    // mid-song), which causes the model to stop at the script boundary.
     const rawLyrics = song.sections
-      .flatMap(s => s.lines.filter(l => !l.isInstrumental).map(l => l.text.target))
+      .flatMap(s => s.lines.filter(l => !l.isInstrumental).map(l => l.text.roman))
       .join('\n');
 
     const jobId = crypto.randomUUID();

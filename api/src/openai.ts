@@ -311,6 +311,7 @@ For each token produce SIX fields:
 
 RULES:
 - Every word in the line must have exactly one token (including particles)
+- Hyphenated compounds (e.g. dil-e-bechain, dard-o-sitam, yaar-e-man, shab-o-roz) are ONE token — never split on hyphens, izāfat (-e-), or conjunctive (-o-). Gloss and surface cover the full compound.
 - surface must be an exact substring of the native script target
 - Return ONLY the JSON matching the schema`;
 

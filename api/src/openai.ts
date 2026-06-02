@@ -541,7 +541,8 @@ async function generateBase(
       { role: 'user', content: userPrompt },
     ],
     BASE_LESSON_SCHEMA,
-    'lyric_lesson_base'
+    'lyric_lesson_base',
+    'gpt-5.5'
   );
 
   return { base: result, promptTokens, completionTokens };

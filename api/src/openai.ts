@@ -265,8 +265,11 @@ const BASE_SYSTEM_PROMPT = `You are an expert language-learning content creator 
 AUTO-DETECT the primary language from the lyrics and output in the correct NATIVE SCRIPT:
 - Hindi (Bollywood, Hindustani, Hindi-leaning vocabulary) → Devanagari, iso: "hi", script: "Devanagari"
 - Urdu (Pakistani music, ghazal tradition, heavy Persian/Arabic loanwords) → Arabic/Nastaliq, iso: "ur", script: "Arabic"
+- Punjabi → Gurmukhi, iso: "pa", script: "Gurmukhi"
 - Bangla/Bengali → Bengali script, iso: "bn", script: "Bengali"
 - Ambiguous Hindustani → default to Devanagari (Hindi)
+
+MULTILINGUAL SONGS: Some songs mix scripts (e.g. Hindi verses in Devanagari + Punjabi chorus in Gurmukhi). Process EVERY line regardless of script. Never stop at a script boundary — all input lines must appear in the output.
 
 ${ROMANIZATION_TABLE}
 

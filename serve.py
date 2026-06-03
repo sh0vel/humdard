@@ -16,8 +16,18 @@ import json
 import os
 import sys
 
+# Load .env from repo root if it exists (gitignored — put credentials there)
+_env_file = os.path.join(os.path.dirname(__file__), '.env')
+if os.path.exists(_env_file):
+    with open(_env_file) as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if _line and not _line.startswith('#') and '=' in _line:
+                _k, _v = _line.split('=', 1)
+                os.environ.setdefault(_k.strip(), _v.strip())
+
 PORT          = int(os.environ.get('PORT', 8765))
-CF_ACCOUNT_ID = os.environ.get('CF_ACCOUNT_ID', '43fa41462cbf2aebf63050dd37ec30e3').strip()
+CF_ACCOUNT_ID = os.environ.get('CF_ACCOUNT_ID', '').strip()
 CF_API_TOKEN  = os.environ.get('CF_API_TOKEN', '').strip()
 CF_SQL_URL    = f'https://api.cloudflare.com/client/v4/accounts/{CF_ACCOUNT_ID}/analytics_engine/sql'
 
@@ -75,6 +85,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
 
 if __name__ == '__main__':
+    if not CF_ACCOUNT_ID or not CF_API_TOKEN:
+        print('Missing credentials. Add to .env:\n  CF_ACCOUNT_ID=...\n  CF_API_TOKEN=...')
+        sys.exit(1)
+
     print(f'humdard analytics → http://localhost:{PORT}/dashboard.html')
     with http.server.HTTPServer(('', PORT), Handler) as httpd:
         try:

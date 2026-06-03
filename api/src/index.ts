@@ -38,41 +38,41 @@ export default {
       // Route requests
       let response: Response;
 
-      if (path === '/api/songs' && request.method === 'GET') {
+      if (path === '/api/v1/songs' && request.method === 'GET') {
         response = await handleGetSongs(request, env);
-      } else if (path.startsWith('/api/songs/') && request.method === 'GET') {
-        const songId = path.split('/api/songs/')[1];
+      } else if (path.startsWith('/api/v1/songs/') && request.method === 'GET') {
+        const songId = path.split('/api/v1/songs/')[1];
         response = await handleGetSong(request, env, songId);
-      } else if (/^\/api\/songs\/[^/]+\/lines\/[^/]+$/.test(path) && request.method === 'DELETE') {
-        const [, , , songId, , lineId] = path.split('/');
+      } else if (/^\/api\/v1\/songs\/[^/]+\/lines\/[^/]+$/.test(path) && request.method === 'DELETE') {
+        const [, , , , songId, , lineId] = path.split('/');
         response = await handleDeleteLine(request, env, songId, lineId);
-      } else if (path.startsWith('/api/songs/') && request.method === 'DELETE') {
-        const songId = path.split('/api/songs/')[1];
+      } else if (path.startsWith('/api/v1/songs/') && request.method === 'DELETE') {
+        const songId = path.split('/api/v1/songs/')[1];
         response = await handleDeleteSong(request, env, songId);
-      } else if (/^\/api\/songs\/[^/]+\/lines\/[^/]+$/.test(path) && request.method === 'PATCH') {
-        const [, , , songId, , lineId] = path.split('/');
+      } else if (/^\/api\/v1\/songs\/[^/]+\/lines\/[^/]+$/.test(path) && request.method === 'PATCH') {
+        const [, , , , songId, , lineId] = path.split('/');
         response = await handleUpdateLine(request, env, songId, lineId);
-      } else if (/^\/api\/songs\/[^/]+\/lines\/[^/]+\/retranslate$/.test(path) && request.method === 'POST') {
-        const [, , , songId, , lineId] = path.split('/');
+      } else if (/^\/api\/v1\/songs\/[^/]+\/lines\/[^/]+\/retranslate$/.test(path) && request.method === 'POST') {
+        const [, , , , songId, , lineId] = path.split('/');
         response = await handleRetranslateLine(request, env, songId, lineId);
-      } else if (/^\/api\/songs\/[^/]+\/lines\/[^/]+\/instrumental$/.test(path) && request.method === 'POST') {
-        const [, , , songId, , lineId] = path.split('/');
+      } else if (/^\/api\/v1\/songs\/[^/]+\/lines\/[^/]+\/instrumental$/.test(path) && request.method === 'POST') {
+        const [, , , , songId, , lineId] = path.split('/');
         response = await handleInsertInstrumental(request, env, songId, lineId);
-      } else if (/^\/api\/songs\/[^/]+\/retranslate$/.test(path) && request.method === 'POST') {
-        const songId = path.split('/')[3];
+      } else if (/^\/api\/v1\/songs\/[^/]+\/retranslate$/.test(path) && request.method === 'POST') {
+        const songId = path.split('/')[4];
         response = await handleRetranslateSong(request, env, songId);
-      } else if (path === '/api/jsonify' && request.method === 'POST') {
+      } else if (path === '/api/v1/jsonify' && request.method === 'POST') {
         response = await handleJsonify(request, env);
-      } else if (path.startsWith('/api/jobs/') && request.method === 'GET') {
-        const jobId = path.split('/api/jobs/')[1];
+      } else if (path.startsWith('/api/v1/jobs/') && request.method === 'GET') {
+        const jobId = path.split('/api/v1/jobs/')[1];
         response = await handleGetJob(request, env, jobId);
-      } else if (path === '/api/lookup' && request.method === 'POST') {
+      } else if (path === '/api/v1/lookup' && request.method === 'POST') {
         response = await handleLookup(request, env);
-      } else if (path === '/api/spotify/search' && request.method === 'GET') {
+      } else if (path === '/api/v1/spotify/search' && request.method === 'GET') {
         response = await handleSpotifySearch(request, env);
-      } else if (path === '/api/admin/backfill-images' && request.method === 'POST') {
+      } else if (path === '/api/v1/admin/backfill-images' && request.method === 'POST') {
         response = await handleBackfillImages(env);
-      } else if (path === '/api/admin/reset-updated-at' && request.method === 'POST') {
+      } else if (path === '/api/v1/admin/reset-updated-at' && request.method === 'POST') {
         response = await handleResetUpdatedAt(env);
       } else {
         response = jsonResponse(

@@ -83,12 +83,12 @@ function write(env: Env, data: AnalyticsEngineDataPoint): void {
 // Normalise a raw request path so IDs don't pollute dimension cardinality.
 export function normalizeEndpoint(path: string): string {
   return path
-    .replace(/\/api\/songs\/[^/]+\/lines\/[^/]+\/retranslate$/, '/api/songs/:id/lines/:id/retranslate')
-    .replace(/\/api\/songs\/[^/]+\/lines\/[^/]+\/instrumental$/, '/api/songs/:id/lines/:id/instrumental')
-    .replace(/\/api\/songs\/[^/]+\/lines\/[^/]+$/, '/api/songs/:id/lines/:id')
-    .replace(/\/api\/songs\/[^/]+\/retranslate$/, '/api/songs/:id/retranslate')
-    .replace(/\/api\/songs\/[^/]+$/, '/api/songs/:id')
-    .replace(/\/api\/jobs\/[^/]+$/, '/api/jobs/:id');
+    .replace(/\/api\/v1\/songs\/[^/]+\/lines\/[^/]+\/retranslate$/, '/api/v1/songs/:id/lines/:id/retranslate')
+    .replace(/\/api\/v1\/songs\/[^/]+\/lines\/[^/]+\/instrumental$/, '/api/v1/songs/:id/lines/:id/instrumental')
+    .replace(/\/api\/v1\/songs\/[^/]+\/lines\/[^/]+$/, '/api/v1/songs/:id/lines/:id')
+    .replace(/\/api\/v1\/songs\/[^/]+\/retranslate$/, '/api/v1/songs/:id/retranslate')
+    .replace(/\/api\/v1\/songs\/[^/]+$/, '/api/v1/songs/:id')
+    .replace(/\/api\/v1\/jobs\/[^/]+$/, '/api/v1/jobs/:id');
 }
 
 // Parse the source name and script from a lookup candidate notes string.

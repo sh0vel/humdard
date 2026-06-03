@@ -15,6 +15,7 @@
       --muted:      #666;
       --green:      #4caf72;
       --red:        #e05252;
+      --blue:       #6495ed;
       --font:       -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       --mono:       'SF Mono', Menlo, Monaco, 'Courier New', monospace;
     }
@@ -76,20 +77,37 @@
     .time-btn.active { background: var(--accent-dim); color: var(--accent); }
     .time-btn:hover:not(.active) { color: var(--text); }
 
-    .refresh-btn {
-      padding: 5px 14px;
-      background: var(--accent-dim);
-      border: 1px solid rgba(201,169,110,0.25);
-      color: var(--accent);
+    .icon-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border-radius: 6px;
       font-size: 12px;
       font-family: var(--font);
-      border-radius: 6px;
       cursor: pointer;
-      transition: background 0.1s;
+      transition: all 0.1s;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
     }
 
-    .refresh-btn:hover { background: rgba(201,169,110,0.22); }
-    .refresh-btn:disabled { opacity: 0.45; cursor: default; }
+    .icon-btn:hover { color: var(--text); }
+    .icon-btn:disabled { opacity: 0.45; cursor: default; }
+
+    .icon-btn.primary {
+      background: var(--accent-dim);
+      border-color: rgba(201,169,110,0.25);
+      color: var(--accent);
+    }
+
+    .icon-btn.primary:hover { background: rgba(201,169,110,0.22); }
+
+    .icon-btn.live {
+      color: var(--green);
+      border-color: rgba(76,175,114,0.3);
+      background: rgba(76,175,114,0.08);
+    }
 
     .config-btn {
       width: 30px; height: 30px;
@@ -160,7 +178,7 @@
       padding: 20px;
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 16px;
       max-width: 1440px;
     }
 
@@ -212,6 +230,54 @@
     .green  { color: var(--green); }
     .red    { color: var(--red); }
 
+    /* ── Sparkline ───────────────────────────────────────────── */
+    .sparkline-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px 10px;
+      position: relative;
+    }
+
+    .sparkline-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+    }
+
+    .sparkline-header .total {
+      margin-left: auto;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    #sparkline-svg { width: 100%; display: block; overflow: visible; }
+
+    .spark-tooltip {
+      position: absolute;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 11px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.1s;
+      white-space: nowrap;
+      z-index: 20;
+    }
+
+    .spark-tooltip.show { opacity: 1; }
+
     /* ── Sections / tables ───────────────────────────────────── */
     .section {
       background: var(--surface);
@@ -230,11 +296,8 @@
       color: var(--muted);
     }
 
-    .two-col {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .three-col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 
     table { width: 100%; border-collapse: collapse; }
 
@@ -269,8 +332,10 @@
       font-weight: 500;
     }
 
-    .badge.done  { background: rgba(76,175,114,0.12); color: var(--green); }
-    .badge.error { background: rgba(224,82,82,0.12);  color: var(--red); }
+    .badge.done        { background: rgba(76,175,114,0.12);  color: var(--green); }
+    .badge.error       { background: rgba(224,82,82,0.12);   color: var(--red); }
+    .badge.fresh       { background: rgba(201,169,110,0.1);  color: var(--accent); }
+    .badge.retranslate { background: rgba(100,149,237,0.12); color: var(--blue); }
 
     .mono { font-family: var(--mono); font-size: 12px; }
 
@@ -278,7 +343,7 @@
       color: var(--red);
       font-family: var(--mono);
       font-size: 11px;
-      max-width: 420px;
+      max-width: 380px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -320,7 +385,8 @@
 
   <div class="spacer"></div>
   <span class="last-refresh" id="last-refresh">—</span>
-  <button class="refresh-btn" id="refresh-btn" onclick="refresh()">↻ Refresh</button>
+  <button class="icon-btn primary" id="refresh-btn" onclick="refresh()">↻ Refresh</button>
+  <button class="icon-btn" id="auto-btn" onclick="toggleAutoRefresh()">▶ Live</button>
   <button class="config-btn" onclick="toggleConfig()" title="Configure">⚙</button>
 </header>
 
@@ -369,6 +435,16 @@
     </div>
   </div>
 
+  <!-- ── Daily cost sparkline ──────────────────────────────── -->
+  <div class="sparkline-wrap" id="sparkline-section">
+    <div class="sparkline-header">
+      Daily Cost — last 14 days
+      <span class="total" id="spark-total"></span>
+    </div>
+    <svg id="sparkline-svg" height="70"></svg>
+    <div class="spark-tooltip" id="spark-tooltip"></div>
+  </div>
+
   <!-- ── Recent generations ─────────────────────────────────── -->
   <div class="section">
     <div class="section-header">Recent Generations</div>
@@ -377,6 +453,7 @@
         <tr>
           <th>Title</th>
           <th>Artist</th>
+          <th>Type</th>
           <th>Status</th>
           <th>Lines</th>
           <th>Unique</th>
@@ -390,13 +467,13 @@
         </tr>
       </thead>
       <tbody id="gen-table">
-        <tr class="loading-row"><td colspan="12"><span class="spinner"></span> Loading...</td></tr>
+        <tr class="loading-row"><td colspan="13"><span class="spinner"></span> Loading...</td></tr>
       </tbody>
     </table>
   </div>
 
-  <!-- ── Two-col ─────────────────────────────────────────────── -->
-  <div class="two-col">
+  <!-- ── Three-col: OpenAI / Endpoints / Lookup ─────────────── -->
+  <div class="three-col">
     <div class="section">
       <div class="section-header">OpenAI Calls by Schema</div>
       <table>
@@ -407,8 +484,8 @@
             <th>Calls</th>
             <th>Avg ms</th>
             <th>Success</th>
-            <th>Prompt tok</th>
-            <th>Compl tok</th>
+            <th>Prompt</th>
+            <th>Compl</th>
           </tr>
         </thead>
         <tbody id="oai-table">
@@ -423,13 +500,30 @@
         <thead>
           <tr>
             <th>Endpoint</th>
-            <th>Method</th>
             <th>Req</th>
             <th>Avg ms</th>
             <th>Err %</th>
           </tr>
         </thead>
         <tbody id="api-table">
+          <tr class="loading-row"><td colspan="4"><span class="spinner"></span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-header">Lookup Sources</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Source</th>
+            <th>Script</th>
+            <th>Lookups</th>
+            <th>Hit %</th>
+            <th>Avg ms</th>
+          </tr>
+        </thead>
+        <tbody id="lookup-table">
           <tr class="loading-row"><td colspan="5"><span class="spinner"></span></td></tr>
         </tbody>
       </table>
@@ -472,6 +566,25 @@ function saveConfig() {
 
 function toggleConfig() {
   document.getElementById('config-panel').classList.toggle('open');
+}
+
+// ── Auto-refresh ──────────────────────────────────────────────────────────────
+
+let autoRefreshTimer = null;
+
+function toggleAutoRefresh() {
+  const btn = document.getElementById('auto-btn');
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+    btn.textContent = '▶ Live';
+    btn.classList.remove('live');
+  } else {
+    autoRefreshTimer = setInterval(refresh, 30000);
+    btn.textContent = '⏸ Live';
+    btn.classList.add('live');
+    refresh();
+  }
 }
 
 // ── Time range ────────────────────────────────────────────────────────────────
@@ -525,16 +638,17 @@ async function query(sql) {
 // ── Formatters ────────────────────────────────────────────────────────────────
 
 const fmt = {
-  ms(v)   { if (v == null || v === '') return '—'; const n = Number(v); return n < 1000 ? `${Math.round(n)}ms` : `${(n/1000).toFixed(1)}s`; },
-  cost(v) { if (v == null || v === '') return '—'; return `$${Number(v).toFixed(4)}`; },
-  pct(v)  { if (v == null || v === '') return '—'; return `${Number(v).toFixed(1)}%`; },
-  num(v)  { if (v == null || v === '') return '—'; return Number(v).toLocaleString(); },
+  ms(v)    { if (v == null || v === '') return '—'; const n = Number(v); return n < 1000 ? `${Math.round(n)}ms` : `${(n/1000).toFixed(1)}s`; },
+  cost(v)  { if (v == null || v === '') return '—'; return `$${Number(v).toFixed(4)}`; },
+  pct(v)   { if (v == null || v === '') return '—'; return `${Number(v).toFixed(1)}%`; },
+  num(v)   { if (v == null || v === '') return '—'; return Number(v).toLocaleString(); },
+  date(v)  { if (!v) return '—'; return new Date(v).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); },
   ts(v) {
     if (!v) return '—';
     const d = new Date(typeof v === 'number' ? v * 1000 : v);
     const diff = Date.now() - d.getTime();
-    if (diff < 60e3)   return 'just now';
-    if (diff < 3600e3) return `${Math.round(diff/60e3)}m ago`;
+    if (diff < 60e3)    return 'just now';
+    if (diff < 3600e3)  return `${Math.round(diff/60e3)}m ago`;
     if (diff < 86400e3) return `${Math.round(diff/3600e3)}h ago`;
     return `${Math.round(diff/86400e3)}d ago`;
   },
@@ -550,13 +664,11 @@ function empty(id, cols, msg = 'No data') {
     `<tr class="empty-row"><td colspan="${cols}">${msg}</td></tr>`;
 }
 
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 // ── Overview cards ────────────────────────────────────────────────────────────
-// Column layout for generation events:
-//   blob1=event_type blob2=status blob3=title blob4=artist blob5=error_msg
-//   blob6=target_lang blob7=learner_lang
-//   double1=wall_ms double2=phase_base_ms double3=phase_parallel_ms
-//   double4=total_lines double5=unique_lines double6=prompt_tokens
-//   double7=completion_tokens double8=cost_usd double9=error_count
 
 async function loadOverview() {
   const tf = timeFilter();
@@ -595,16 +707,110 @@ async function loadOverview() {
   document.getElementById('c-dedup').textContent    = fmt.num(r.dedup_saved);
 }
 
+// ── Daily cost sparkline ──────────────────────────────────────────────────────
+
+async function loadSparkline() {
+  const rows = await query(`
+    SELECT
+      toDate(timestamp) AS day,
+      round(sum(double8), 4) AS cost_usd,
+      countIf(blob2 = 'done') AS songs
+    FROM humdard
+    WHERE blob1 = 'generation'
+      AND timestamp >= now() - INTERVAL '14' DAY
+    GROUP BY day
+    ORDER BY day ASC
+  `);
+
+  const svg = document.getElementById('sparkline-svg');
+  const tooltip = document.getElementById('spark-tooltip');
+  const wrap = document.getElementById('sparkline-section');
+
+  if (!rows.length) {
+    svg.innerHTML = `<text x="50%" y="35" text-anchor="middle" fill="#666" font-size="12">No data yet</text>`;
+    return;
+  }
+
+  // Fill missing days
+  const byDay = new Map(rows.map(r => [r.day, r]));
+  const allDays = [];
+  const now = new Date();
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(now); d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    allDays.push({ day: key, cost_usd: 0, songs: 0, ...(byDay.get(key) || {}) });
+  }
+
+  const maxCost = Math.max(...allDays.map(r => Number(r.cost_usd)), 0.0001);
+  const totalCost = allDays.reduce((sum, r) => sum + Number(r.cost_usd), 0);
+  document.getElementById('spark-total').textContent = fmt.cost(totalCost) + ' total';
+
+  const W = wrap.getBoundingClientRect().width - 32;
+  const H = 70;
+  const BAR_GAP = 3;
+  const barW = Math.floor((W - BAR_GAP * (allDays.length - 1)) / allDays.length);
+  const LABEL_H = 18;
+  const chartH = H - LABEL_H;
+
+  svg.setAttribute('height', H);
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+  let markup = '';
+  allDays.forEach((r, i) => {
+    const x = i * (barW + BAR_GAP);
+    const cost = Number(r.cost_usd);
+    const barH = cost > 0 ? Math.max(3, Math.round((cost / maxCost) * (chartH - 4))) : 2;
+    const y = chartH - barH;
+    const isToday = r.day === now.toISOString().slice(0, 10);
+    const color = isToday ? '#c9a96e' : cost > 0 ? '#5a4a2a' : '#242424';
+
+    markup += `
+      <g class="spark-bar" data-day="${esc(r.day)}" data-cost="${cost}" data-songs="${r.songs}">
+        <rect x="${x}" y="${y}" width="${barW}" height="${barH}" fill="${color}" rx="2" opacity="${isToday ? 1 : 0.85}"/>
+        <rect x="${x}" y="0" width="${barW}" height="${chartH}" fill="transparent"/>
+      </g>`;
+
+    // Label every 3rd day + today
+    if (i % 3 === 0 || isToday) {
+      const d = new Date(r.day + 'T00:00:00');
+      const label = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      markup += `<text x="${x + barW/2}" y="${H}" text-anchor="middle" fill="#555" font-size="9" font-family="var(--font)">${label}</text>`;
+    }
+  });
+
+  svg.innerHTML = markup;
+
+  // Tooltip interactions
+  svg.querySelectorAll('.spark-bar').forEach(bar => {
+    bar.addEventListener('mouseenter', (e) => {
+      const day  = bar.dataset.day;
+      const cost = Number(bar.dataset.cost);
+      const songs = bar.dataset.songs;
+      const d = new Date(day + 'T00:00:00');
+      tooltip.innerHTML = `<strong>${d.toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' })}</strong><br>${fmt.cost(cost)} · ${songs} song${songs != 1 ? 's' : ''}`;
+      const rect = bar.getBoundingClientRect();
+      const wrapRect = wrap.getBoundingClientRect();
+      let left = rect.left - wrapRect.left + rect.width / 2 - 60;
+      left = Math.max(0, Math.min(left, wrapRect.width - 140));
+      tooltip.style.left = left + 'px';
+      tooltip.style.top  = (rect.top - wrapRect.top - 54) + 'px';
+      tooltip.classList.add('show');
+    });
+    bar.addEventListener('mouseleave', () => tooltip.classList.remove('show'));
+  });
+}
+
 // ── Recent generations ────────────────────────────────────────────────────────
 
 async function loadGenerations() {
-  loading('gen-table', 12);
+  loading('gen-table', 13);
   const tf = timeFilter();
   const rows = await query(`
     SELECT
       blob3   AS title,
       blob4   AS artist,
       blob2   AS status,
+      blob8   AS type,
       blob5   AS error_message,
       blob6   AS target_lang,
       double1 AS wall_ms,
@@ -622,14 +828,20 @@ async function loadGenerations() {
   `);
 
   const tbody = document.getElementById('gen-table');
-  if (!rows.length) { empty('gen-table', 12, 'No generations yet'); return; }
+  if (!rows.length) { empty('gen-table', 13, 'No generations yet'); return; }
 
   tbody.innerHTML = rows.map(r => {
     const errs = Number(r.error_count || 0);
-    const errHint = r.error_message ? `<div class="err-msg">${esc(r.error_message)}</div>` : '';
+    const errHint = r.error_message ? `<div class="err-msg" title="${esc(r.error_message)}">${esc(r.error_message)}</div>` : '';
+    const typeBadge = r.type ? `<span class="badge ${r.type}">${r.type}</span>` : '—';
+    const errCell = errs > 0
+      ? `<span style="color:var(--red)" title="Partial failures: ${errs} line(s) had token/translation errors but song was saved">⚠ ${errs}</span>`
+      : `<span style="color:var(--muted)">—</span>`;
+
     return `<tr>
       <td><strong>${esc(r.title || '—')}</strong>${errHint}</td>
       <td style="color:var(--muted)">${esc(r.artist || '—')}</td>
+      <td>${typeBadge}</td>
       <td><span class="badge ${r.status}">${r.status}</span></td>
       <td class="mono">${fmt.num(r.total_lines)}</td>
       <td class="mono">${fmt.num(r.unique_lines)}</td>
@@ -637,7 +849,7 @@ async function loadGenerations() {
       <td class="mono" style="color:var(--muted)">${fmt.ms(r.phase_base_ms)}</td>
       <td class="mono" style="color:var(--muted)">${fmt.ms(r.phase_parallel_ms)}</td>
       <td class="mono">${fmt.ms(r.wall_ms)}</td>
-      <td class="mono" style="color:${errs > 0 ? 'var(--red)' : 'var(--muted)'}">${errs || '—'}</td>
+      <td class="mono">${errCell}</td>
       <td style="color:var(--muted)">${esc(r.target_lang || '—')}</td>
       <td style="color:var(--muted);white-space:nowrap">${fmt.ts(r.timestamp)}</td>
     </tr>`;
@@ -645,9 +857,6 @@ async function loadGenerations() {
 }
 
 // ── OpenAI calls ──────────────────────────────────────────────────────────────
-// Column layout for openai_call events:
-//   blob1=event_type blob2=schema_name blob3=model
-//   double1=wall_ms double2=prompt_tokens double3=completion_tokens double4=success(1/0)
 
 async function loadOpenAICalls() {
   loading('oai-table', 7);
@@ -685,12 +894,9 @@ async function loadOpenAICalls() {
 }
 
 // ── API requests ──────────────────────────────────────────────────────────────
-// Column layout for api_request events:
-//   blob1=event_type blob2=endpoint blob3=method
-//   double1=status_code double2=wall_ms
 
 async function loadApiRequests() {
-  loading('api-table', 5);
+  loading('api-table', 4);
   const tf = timeFilter();
   const rows = await query(`
     SELECT
@@ -706,16 +912,48 @@ async function loadApiRequests() {
   `);
 
   const tbody = document.getElementById('api-table');
-  if (!rows.length) { empty('api-table', 5); return; }
+  if (!rows.length) { empty('api-table', 4); return; }
 
   tbody.innerHTML = rows.map(r => {
     const er = Number(r.error_rate || 0);
     return `<tr>
-      <td class="mono">${esc(r.endpoint)}</td>
-      <td style="color:var(--muted);font-size:11px">${esc(r.method)}</td>
+      <td class="mono" style="font-size:11px">${esc(r.endpoint)}</td>
       <td class="mono">${fmt.num(r.total_requests)}</td>
       <td class="mono">${fmt.ms(r.avg_wall_ms)}</td>
       <td class="mono" style="color:${er > 10 ? 'var(--red)' : 'var(--muted)'}">${fmt.pct(er)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Lookup sources ────────────────────────────────────────────────────────────
+
+async function loadLookup() {
+  loading('lookup-table', 5);
+  const tf = timeFilter();
+  const rows = await query(`
+    SELECT
+      blob2 AS source,
+      blob3 AS script,
+      count() AS total,
+      round(100.0 * avg(double2), 1) AS hit_rate,
+      round(avg(double1), 0) AS avg_wall_ms
+    FROM humdard
+    WHERE blob1 = 'lookup' ${tf}
+    GROUP BY blob2, blob3
+    ORDER BY total DESC
+  `);
+
+  const tbody = document.getElementById('lookup-table');
+  if (!rows.length) { empty('lookup-table', 5); return; }
+
+  tbody.innerHTML = rows.map(r => {
+    const hr = Number(r.hit_rate || 0);
+    return `<tr>
+      <td class="mono">${esc(r.source)}</td>
+      <td style="color:var(--muted);font-size:11px">${esc(r.script)}</td>
+      <td class="mono">${fmt.num(r.total)}</td>
+      <td class="mono" style="color:${hr < 50 ? 'var(--red)' : hr > 80 ? 'var(--green)' : ''}">${fmt.pct(hr)}</td>
+      <td class="mono">${fmt.ms(r.avg_wall_ms)}</td>
     </tr>`;
   }).join('');
 }
@@ -747,15 +985,11 @@ async function loadErrors() {
     <td style="color:var(--muted);white-space:nowrap">${fmt.ts(r.timestamp)}</td>
     <td><strong>${esc(r.title || '—')}</strong></td>
     <td style="color:var(--muted)">${esc(r.artist || '—')}</td>
-    <td class="err-msg" style="max-width:600px">${esc(r.error_message || '—')}</td>
+    <td class="err-msg" style="max-width:600px;font-size:12px">${esc(r.error_message || '—')}</td>
   </tr>`).join('');
 }
 
 // ── Refresh ───────────────────────────────────────────────────────────────────
-
-function esc(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
 
 async function refresh() {
   const btn    = document.getElementById('refresh-btn');
@@ -766,11 +1000,13 @@ async function refresh() {
 
   try {
     await Promise.all([
-      loadOverview().catch(e => { throw e; }),
-      loadGenerations().catch(e => { throw e; }),
-      loadOpenAICalls().catch(e => { throw e; }),
-      loadApiRequests().catch(e => { throw e; }),
-      loadErrors().catch(e => { throw e; }),
+      loadOverview(),
+      loadSparkline(),
+      loadGenerations(),
+      loadOpenAICalls(),
+      loadApiRequests(),
+      loadLookup(),
+      loadErrors(),
     ]);
     document.getElementById('last-refresh').textContent =
       `Updated ${new Date().toLocaleTimeString()}`;

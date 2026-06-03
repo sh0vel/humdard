@@ -10,7 +10,7 @@ import { generateLyricLesson, retranslateLine } from './openai';
 import { lookupLyrics } from './lookup';
 import { validateJsonifyRequest, validateLyricLesson, ValidationError, normalizeLyrics } from './validate';
 import { generateSongId, generateFullHash } from './utils';
-import { trackApiRequest, trackGeneration, normalizeEndpoint } from './analytics';
+import { trackApiRequest, trackGeneration, trackRetranslateLine, trackLookup, normalizeEndpoint, parseLookupSource } from './analytics';
 
 /**
  * Main request handler + queue consumer
@@ -354,7 +354,7 @@ async function handleGetJob(_request: Request, env: Env, jobId: string): Promise
  * Queue consumer — runs the actual OpenAI generation for a queued job
  */
 async function processGenerationJob(env: Env, msg: JsonifyQueueMessage): Promise<void> {
-  const { jobId, rawLyrics, titleHint, artistHint, imageUrl, feedback, targetLang, learnerLang } = msg;
+  const { jobId, rawLyrics, titleHint, artistHint, imageUrl, feedback, targetLang, learnerLang, isRetranslate } = msg;
   const jobT0 = Date.now();
 
   const updateJob = async (patch: Partial<JobStatus>) => {
@@ -406,6 +406,7 @@ async function processGenerationJob(env: Env, msg: JsonifyQueueMessage): Promise
     console.log(`[queue] job ${jobId} done → ${finalSongId}`);
 
     trackGeneration(env, {
+      type: isRetranslate ? 'retranslate' : 'fresh',
       status: 'done',
       title: validatedLesson.title,
       artist: validatedLesson.source.artist ?? '',
@@ -427,6 +428,7 @@ async function processGenerationJob(env: Env, msg: JsonifyQueueMessage): Promise
     await updateJob({ status: 'error', errorMessage: errMsg });
 
     trackGeneration(env, {
+      type: isRetranslate ? 'retranslate' : 'fresh',
       status: 'error',
       title: titleHint ?? 'unknown',
       artist: artistHint ?? '',
@@ -472,6 +474,7 @@ async function handleUpdateLine(request: Request, env: Env, songId: string, line
  * POST /api/songs/:songId/lines/:lineId/retranslate — AI re-translate one line with optional feedback
  */
 async function handleRetranslateLine(request: Request, env: Env, songId: string, lineId: string): Promise<Response> {
+  const t0 = Date.now();
   try {
     const body = await request.json().catch(() => null) as { feedback?: string } | null;
     const feedback = typeof body?.feedback === 'string' ? body.feedback.trim() : undefined;
@@ -498,9 +501,11 @@ async function handleRetranslateLine(request: Request, env: Env, songId: string,
     });
     if (!updated) return jsonResponse({ error: { code: 'NOT_FOUND', message: 'Line not found after retranslate' } }, 404);
 
+    trackRetranslateLine(env, { status: 'done', songId, lineId, hasFeedback: !!feedback, wallMs: Date.now() - t0 });
     return jsonResponse(result, 200);
   } catch (error) {
     console.error('Error in handleRetranslateLine:', error);
+    trackRetranslateLine(env, { status: 'error', songId, lineId, hasFeedback: false, wallMs: Date.now() - t0 });
     return jsonResponse({ error: { code: 'RETRANSLATE_ERROR', message: String(error) } }, 502);
   }
 }
@@ -536,6 +541,7 @@ async function handleRetranslateSong(request: Request, env: Env, songId: string)
       feedback,
       targetLang: meta?.language?.target ?? 'hi',
       learnerLang: meta?.language?.learner ?? 'en',
+      isRetranslate: true,
     });
 
     return jsonResponse({ jobId }, 202);
@@ -575,6 +581,7 @@ async function handleInsertInstrumental(_request: Request, env: Env, songId: str
  * POST /api/lookup - Find candidate Devanagari lyrics for a given title/artist
  */
 async function handleLookup(request: Request, env: Env): Promise<Response> {
+  const t0 = Date.now();
   try {
     const body = await request.json().catch(() => null) as { title?: unknown; artist?: unknown } | null;
     if (!body || typeof body.title !== 'string' || !body.title.trim()) {
@@ -587,9 +594,16 @@ async function handleLookup(request: Request, env: Env): Promise<Response> {
     const artist = typeof body.artist === 'string' ? body.artist.trim().slice(0, 200) : undefined;
 
     const result = await lookupLyrics(env, title, artist);
+
+    const found = result.candidates.length > 0;
+    const notes = result.candidates[0]?.notes ?? '';
+    const { source, script } = found ? parseLookupSource(notes) : { source: 'none', script: 'none' };
+    trackLookup(env, { source, script, title, found, wallMs: Date.now() - t0 });
+
     return jsonResponse(result, 200);
   } catch (error) {
     console.error('Error in handleLookup:', error);
+    trackLookup(env, { source: 'none', script: 'none', title: '', found: false, wallMs: Date.now() - t0 });
     return jsonResponse(
       {
         error: {

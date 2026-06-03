@@ -559,7 +559,7 @@ async function generateBase(
     ],
     BASE_LESSON_SCHEMA,
     'lyric_lesson_base',
-    'gpt-5.5'
+    'gpt-4o'
   );
 
   return { base: result, promptTokens, completionTokens };

@@ -24,6 +24,11 @@ ALLOWED_ORIGINS = "*"
 OPENAI_MODEL = "gpt-4o"
 SPOTIFY_CLIENT_ID = "55c2275c63634074aa13b4d40e359e6f"
 
+# Analytics Engine
+[[analytics_engine_datasets]]
+binding = "ANALYTICS"
+dataset = "humdard"
+
 # Secrets (set via wrangler secret put)
 # - OPENAI_API_KEY: Your OpenAI API key
 # - SPOTIFY_CLIENT_SECRET: Your Spotify app client secret
@@ -55,6 +60,10 @@ max_batch_size = 1
 max_batch_timeout = 5
 max_retries = 2
 
+[[env.preview.analytics_engine_datasets]]
+binding = "ANALYTICS"
+dataset = "humdard"
+
 # Production — deploys to humdard-lyric-api.<account>.workers.dev
 # Usage: npx wrangler deploy --env production
 [env.production]
@@ -74,3 +83,7 @@ queue = "lyric-generation"
 max_batch_size = 1
 max_batch_timeout = 5
 max_retries = 2
+
+[[env.production.analytics_engine_datasets]]
+binding = "ANALYTICS"
+dataset = "humdard"

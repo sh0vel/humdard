@@ -7,6 +7,7 @@
  */
 
 import { Env, LyricLesson, OpenAIRequest, OpenAIResponse } from './types';
+import { trackOpenAICall } from './analytics';
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 const DEFAULT_MODEL = 'gpt-4o';
@@ -442,6 +443,12 @@ export interface OpenAIUsage {
 export interface LyricLessonResult {
   lesson: LyricLesson;
   usage: OpenAIUsage;
+  timing: {
+    phaseBaseMs: number;
+    phaseParallelMs: number;
+    totalLines: number;
+    uniqueLines: number;
+  };
 }
 
 function calculateCost(promptTokens: number, completionTokens: number): number {
@@ -472,34 +479,43 @@ async function callOpenAI<T>(
   };
 
   const t0 = Date.now();
-  const response = await fetch(OPENAI_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${env.OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify(body),
-  });
+  try {
+    const response = await fetch(OPENAI_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify(body),
+    });
 
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`OpenAI error ${response.status}: ${err}`);
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`OpenAI error ${response.status}: ${err}`);
+    }
+
+    const data = (await response.json()) as OpenAIResponse;
+    const choice = data.choices?.[0];
+    if (!choice) throw new Error('No choices from OpenAI');
+    if (choice.message.refusal) throw new Error(`OpenAI refused: ${choice.message.refusal}`);
+    if (!choice.message.content) throw new Error('No content from OpenAI');
+
+    const ms = Date.now() - t0;
+    const promptTokens = data.usage?.prompt_tokens ?? 0;
+    const completionTokens = data.usage?.completion_tokens ?? 0;
+    console.log(`[openai:${schemaName}] ${ms}ms | prompt=${promptTokens} completion=${completionTokens}`);
+
+    trackOpenAICall(env, { schemaName, model, wallMs: ms, promptTokens, completionTokens, success: true });
+
+    return {
+      result: JSON.parse(choice.message.content) as T,
+      promptTokens,
+      completionTokens,
+    };
+  } catch (err) {
+    trackOpenAICall(env, { schemaName, model, wallMs: Date.now() - t0, promptTokens: 0, completionTokens: 0, success: false });
+    throw err;
   }
-
-  const data = (await response.json()) as OpenAIResponse;
-  const choice = data.choices?.[0];
-  if (!choice) throw new Error('No choices from OpenAI');
-  if (choice.message.refusal) throw new Error(`OpenAI refused: ${choice.message.refusal}`);
-  if (!choice.message.content) throw new Error('No content from OpenAI');
-
-  const ms = Date.now() - t0;
-  console.log(`[openai:${schemaName}] ${ms}ms | prompt=${data.usage?.prompt_tokens ?? 0} completion=${data.usage?.completion_tokens ?? 0}`);
-
-  return {
-    result: JSON.parse(choice.message.content) as T,
-    promptTokens: data.usage?.prompt_tokens ?? 0,
-    completionTokens: data.usage?.completion_tokens ?? 0,
-  };
 }
 
 // ============================================================================
@@ -679,9 +695,11 @@ export async function generateLyricLesson(
   if (!env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not set');
 
   // Phase 1: structure + native script + roman
+  const t0 = Date.now();
   const { base, promptTokens: p1, completionTokens: c1 } = await generateBase(
     env, rawLyrics, titleHint, artistHint, lessonId, feedback
   );
+  const phaseBaseMs = Date.now() - t0;
 
   // Flatten lines for Phase 2
   const flatLines: FlatLine[] = base.sections.flatMap(s =>
@@ -702,6 +720,7 @@ export async function generateLyricLesson(
   for (const line of flatLines) canonicalId.set(line.lineId, firstSeen.get(line.target)!);
 
   // Phase 2: direct + natural + tokens all in parallel (only unique lines)
+  const t1 = Date.now();
   const [
     { map: directMap, errors: errsD, promptTokens: p2d, completionTokens: c2d },
     { map: naturalMap, errors: errsN, promptTokens: p2n, completionTokens: c2n },
@@ -711,6 +730,7 @@ export async function generateLyricLesson(
     generateTranslations(env, uniqueLines, 'natural', titleHint, artistHint),
     generateTokens(env, uniqueLines, titleHint, artistHint),
   ]);
+  const phaseParallelMs = Date.now() - t1;
 
   const allErrors = [...errsD, ...errsN, ...errsT];
 
@@ -753,6 +773,12 @@ export async function generateLyricLesson(
       completionTokens: totalCompletion,
       totalTokens: totalPrompt + totalCompletion,
       estimatedCostUSD,
+    },
+    timing: {
+      phaseBaseMs,
+      phaseParallelMs,
+      totalLines: flatLines.length,
+      uniqueLines: uniqueLines.length,
     },
   };
 }

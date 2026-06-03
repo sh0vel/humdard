@@ -10,6 +10,7 @@ import { generateLyricLesson, retranslateLine } from './openai';
 import { lookupLyrics } from './lookup';
 import { validateJsonifyRequest, validateLyricLesson, ValidationError, normalizeLyrics } from './validate';
 import { generateSongId, generateFullHash } from './utils';
+import { trackApiRequest, trackGeneration, normalizeEndpoint } from './analytics';
 
 /**
  * Main request handler + queue consumer
@@ -27,6 +28,8 @@ export default {
     if (request.method === 'OPTIONS') {
       return handleCorsPreFlight(request, env);
     }
+
+    const reqT0 = Date.now();
 
     try {
       const url = new URL(request.url);
@@ -79,20 +82,37 @@ export default {
       }
 
       // Add CORS headers to response
-      return addCorsHeaders(response, request, env);
+      const finalResponse = addCorsHeaders(response, request, env);
+      trackApiRequest(env, {
+        endpoint: normalizeEndpoint(new URL(request.url).pathname),
+        method: request.method,
+        statusCode: finalResponse.status,
+        wallMs: Date.now() - reqT0,
+      });
+      return finalResponse;
     } catch (error) {
       console.error('Unhandled error:', error);
-      const response = jsonResponse(
-        {
-          error: {
-            code: 'INTERNAL_ERROR',
-            message: 'An unexpected error occurred',
-            details: error instanceof Error ? error.message : String(error),
+      const response = addCorsHeaders(
+        jsonResponse(
+          {
+            error: {
+              code: 'INTERNAL_ERROR',
+              message: 'An unexpected error occurred',
+              details: error instanceof Error ? error.message : String(error),
+            },
           },
-        },
-        500
+          500
+        ),
+        request,
+        env
       );
-      return addCorsHeaders(response, request, env);
+      trackApiRequest(env, {
+        endpoint: normalizeEndpoint(new URL(request.url).pathname),
+        method: request.method,
+        statusCode: 500,
+        wallMs: Date.now() - reqT0,
+      });
+      return response;
     }
   },
 };
@@ -335,6 +355,7 @@ async function handleGetJob(_request: Request, env: Env, jobId: string): Promise
  */
 async function processGenerationJob(env: Env, msg: JsonifyQueueMessage): Promise<void> {
   const { jobId, rawLyrics, titleHint, artistHint, imageUrl, feedback, targetLang, learnerLang } = msg;
+  const jobT0 = Date.now();
 
   const updateJob = async (patch: Partial<JobStatus>) => {
     const existing = (await getJob(env, jobId)) ?? {
@@ -350,7 +371,7 @@ async function processGenerationJob(env: Env, msg: JsonifyQueueMessage): Promise
     // Generate a temporary song ID for use during generation
     const tempSongId = await generateSongId(titleHint || 'untitled', rawLyrics);
 
-    const { lesson, usage: openaiUsage } = await generateLyricLesson(
+    const { lesson, usage: openaiUsage, timing } = await generateLyricLesson(
       env,
       rawLyrics,
       titleHint,
@@ -383,10 +404,45 @@ async function processGenerationJob(env: Env, msg: JsonifyQueueMessage): Promise
 
     await updateJob({ status: 'done', songId: finalSongId });
     console.log(`[queue] job ${jobId} done → ${finalSongId}`);
+
+    trackGeneration(env, {
+      status: 'done',
+      title: validatedLesson.title,
+      artist: validatedLesson.source.artist ?? '',
+      targetLang,
+      learnerLang,
+      wallMs: Date.now() - jobT0,
+      phaseBaseMs: timing.phaseBaseMs,
+      phaseParallelMs: timing.phaseParallelMs,
+      totalLines: timing.totalLines,
+      uniqueLines: timing.uniqueLines,
+      promptTokens: openaiUsage.promptTokens,
+      completionTokens: openaiUsage.completionTokens,
+      costUsd: openaiUsage.estimatedCostUSD,
+      errorCount: validatedLesson.generationErrors?.length ?? 0,
+    });
   } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.error(`[queue] job ${jobId} failed:`, msg);
-    await updateJob({ status: 'error', errorMessage: msg });
+    const errMsg = error instanceof Error ? error.message : String(error);
+    console.error(`[queue] job ${jobId} failed:`, errMsg);
+    await updateJob({ status: 'error', errorMessage: errMsg });
+
+    trackGeneration(env, {
+      status: 'error',
+      title: titleHint ?? 'unknown',
+      artist: artistHint ?? '',
+      errorMessage: errMsg,
+      targetLang,
+      learnerLang,
+      wallMs: Date.now() - jobT0,
+      phaseBaseMs: 0,
+      phaseParallelMs: 0,
+      totalLines: 0,
+      uniqueLines: 0,
+      promptTokens: 0,
+      completionTokens: 0,
+      costUsd: 0,
+      errorCount: 1,
+    });
   }
 }
 

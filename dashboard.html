@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>humdard · analytics</title>
+  <style>
+    :root {
+      --bg:         #0a0a0a;
+      --surface:    #141414;
+      --border:     #242424;
+      --accent:     #c9a96e;
+      --accent-dim: rgba(201,169,110,0.12);
+      --text:       #e8e8e8;
+      --muted:      #666;
+      --green:      #4caf72;
+      --red:        #e05252;
+      --font:       -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --mono:       'SF Mono', Menlo, Monaco, 'Courier New', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 13px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    header h1 {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: var(--accent);
+    }
+
+    header h1 span { color: var(--muted); font-weight: 400; }
+
+    .spacer { flex: 1; }
+
+    .time-group {
+      display: flex;
+      gap: 1px;
+      background: var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .time-btn {
+      padding: 4px 11px;
+      border: none;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 12px;
+      font-family: var(--font);
+      cursor: pointer;
+      transition: background 0.1s, color 0.1s;
+    }
+
+    .time-btn.active { background: var(--accent-dim); color: var(--accent); }
+    .time-btn:hover:not(.active) { color: var(--text); }
+
+    .refresh-btn {
+      padding: 5px 14px;
+      background: var(--accent-dim);
+      border: 1px solid rgba(201,169,110,0.25);
+      color: var(--accent);
+      font-size: 12px;
+      font-family: var(--font);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+
+    .refresh-btn:hover { background: rgba(201,169,110,0.22); }
+    .refresh-btn:disabled { opacity: 0.45; cursor: default; }
+
+    .config-btn {
+      width: 30px; height: 30px;
+      display: flex; align-items: center; justify-content: center;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 15px;
+      transition: color 0.1s, border-color 0.1s;
+    }
+
+    .config-btn:hover { color: var(--text); border-color: var(--accent); }
+
+    .last-refresh { font-size: 11px; color: var(--muted); }
+
+    /* ── Config panel ────────────────────────────────────────── */
+    #config-panel {
+      display: none;
+      align-items: flex-end;
+      gap: 14px;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    #config-panel.open { display: flex; }
+
+    .cf { display: flex; flex-direction: column; gap: 4px; }
+
+    .cf label {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .cf input {
+      padding: 6px 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 12px;
+      width: 300px;
+      outline: none;
+    }
+
+    .cf input:focus { border-color: var(--accent); }
+
+    .save-btn {
+      padding: 7px 16px;
+      background: var(--accent);
+      border: none;
+      color: #000;
+      font-weight: 700;
+      font-size: 12px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .config-note { font-size: 11px; color: var(--muted); padding-bottom: 1px; }
+
+    /* ── Main ────────────────────────────────────────────────── */
+    main {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      max-width: 1440px;
+    }
+
+    /* ── Error banner ────────────────────────────────────────── */
+    #error-banner {
+      display: none;
+      background: rgba(224,82,82,0.08);
+      border: 1px solid rgba(224,82,82,0.25);
+      color: var(--red);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: var(--mono);
+    }
+
+    #error-banner.show { display: block; }
+
+    /* ── Cards ───────────────────────────────────────────────── */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+
+    .card-label {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 10px;
+    }
+
+    .card-value {
+      font-size: 30px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .card-sub { font-size: 11px; color: var(--muted); margin-top: 5px; }
+
+    .accent { color: var(--accent); }
+    .green  { color: var(--green); }
+    .red    { color: var(--red); }
+
+    /* ── Sections / tables ───────────────────────────────────── */
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .section-header {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    table { width: 100%; border-collapse: collapse; }
+
+    th {
+      padding: 7px 14px;
+      text-align: left;
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0,0,0,0.15);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 9px 14px;
+      border-bottom: 1px solid rgba(36,36,36,0.6);
+      vertical-align: middle;
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.018); }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 1px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .badge.done  { background: rgba(76,175,114,0.12); color: var(--green); }
+    .badge.error { background: rgba(224,82,82,0.12);  color: var(--red); }
+
+    .mono { font-family: var(--mono); font-size: 12px; }
+
+    .err-msg {
+      color: var(--red);
+      font-family: var(--mono);
+      font-size: 11px;
+      max-width: 420px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-top: 2px;
+    }
+
+    .loading-row td, .empty-row td {
+      text-align: center;
+      color: var(--muted);
+      padding: 28px;
+      font-size: 12px;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 12px; height: 12px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>humdard <span>· analytics</span></h1>
+
+  <div class="time-group">
+    <button class="time-btn" data-range="24h">24h</button>
+    <button class="time-btn active" data-range="7d">7d</button>
+    <button class="time-btn" data-range="30d">30d</button>
+    <button class="time-btn" data-range="all">all</button>
+  </div>
+
+  <div class="spacer"></div>
+  <span class="last-refresh" id="last-refresh">—</span>
+  <button class="refresh-btn" id="refresh-btn" onclick="refresh()">↻ Refresh</button>
+  <button class="config-btn" onclick="toggleConfig()" title="Configure">⚙</button>
+</header>
+
+<div id="config-panel">
+  <div class="cf">
+    <label>Account ID</label>
+    <input id="account-id" type="text" placeholder="a1b2c3d4...">
+  </div>
+  <div class="cf">
+    <label>API Token</label>
+    <input id="api-token" type="password" placeholder="Analytics Engine Read token">
+  </div>
+  <button class="save-btn" onclick="saveConfig()">Save &amp; Refresh</button>
+  <span class="config-note">Token needs <em>Account Analytics: Read</em> permission</span>
+</div>
+
+<main>
+  <div id="error-banner"></div>
+
+  <!-- ── Cards ─────────────────────────────────────────────── -->
+  <div class="cards">
+    <div class="card">
+      <div class="card-label">Songs Generated</div>
+      <div class="card-value accent" id="c-done">—</div>
+      <div class="card-sub" id="c-done-sub">&nbsp;</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Error Rate</div>
+      <div class="card-value" id="c-err-rate">—</div>
+      <div class="card-sub" id="c-err-sub">&nbsp;</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Total Cost</div>
+      <div class="card-value" id="c-cost">—</div>
+      <div class="card-sub" id="c-cost-sub">&nbsp;</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Avg Gen Time</div>
+      <div class="card-value" id="c-avg-time">—</div>
+      <div class="card-sub">wall time per song</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Dedup Savings</div>
+      <div class="card-value green" id="c-dedup">—</div>
+      <div class="card-sub">duplicate lines skipped</div>
+    </div>
+  </div>
+
+  <!-- ── Recent generations ─────────────────────────────────── -->
+  <div class="section">
+    <div class="section-header">Recent Generations</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Artist</th>
+          <th>Status</th>
+          <th>Lines</th>
+          <th>Unique</th>
+          <th>Cost</th>
+          <th>Base</th>
+          <th>Parallel</th>
+          <th>Total</th>
+          <th>Part Errs</th>
+          <th>Lang</th>
+          <th>When</th>
+        </tr>
+      </thead>
+      <tbody id="gen-table">
+        <tr class="loading-row"><td colspan="12"><span class="spinner"></span> Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── Two-col ─────────────────────────────────────────────── -->
+  <div class="two-col">
+    <div class="section">
+      <div class="section-header">OpenAI Calls by Schema</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Schema</th>
+            <th>Model</th>
+            <th>Calls</th>
+            <th>Avg ms</th>
+            <th>Success</th>
+            <th>Prompt tok</th>
+            <th>Compl tok</th>
+          </tr>
+        </thead>
+        <tbody id="oai-table">
+          <tr class="loading-row"><td colspan="7"><span class="spinner"></span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-header">API Requests by Endpoint</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Endpoint</th>
+            <th>Method</th>
+            <th>Req</th>
+            <th>Avg ms</th>
+            <th>Err %</th>
+          </tr>
+        </thead>
+        <tbody id="api-table">
+          <tr class="loading-row"><td colspan="5"><span class="spinner"></span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Error log ───────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-header">Error Log</div>
+    <table>
+      <thead>
+        <tr>
+          <th>When</th>
+          <th>Title</th>
+          <th>Artist</th>
+          <th>Error</th>
+        </tr>
+      </thead>
+      <tbody id="err-table">
+        <tr class="loading-row"><td colspan="4"><span class="spinner"></span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+
+function loadConfig() {
+  document.getElementById('account-id').value = localStorage.getItem('cf_account_id') || '';
+  document.getElementById('api-token').value  = localStorage.getItem('cf_api_token')  || '';
+}
+
+function saveConfig() {
+  localStorage.setItem('cf_account_id', document.getElementById('account-id').value.trim());
+  localStorage.setItem('cf_api_token',  document.getElementById('api-token').value.trim());
+  document.getElementById('config-panel').classList.remove('open');
+  refresh();
+}
+
+function toggleConfig() {
+  document.getElementById('config-panel').classList.toggle('open');
+}
+
+// ── Time range ────────────────────────────────────────────────────────────────
+
+let range = '7d';
+
+document.querySelectorAll('.time-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    range = btn.dataset.range;
+    refresh();
+  });
+});
+
+function timeFilter() {
+  if (range === '24h') return `AND timestamp >= now() - INTERVAL '24' HOUR`;
+  if (range === '7d')  return `AND timestamp >= now() - INTERVAL '7' DAY`;
+  if (range === '30d') return `AND timestamp >= now() - INTERVAL '30' DAY`;
+  return '';
+}
+
+// ── Query ─────────────────────────────────────────────────────────────────────
+
+async function query(sql) {
+  const accountId = localStorage.getItem('cf_account_id');
+  const apiToken  = localStorage.getItem('cf_api_token');
+
+  if (!accountId || !apiToken) {
+    throw new Error('No credentials — click ⚙ to enter your Cloudflare Account ID and API token.');
+  }
+
+  const res = await fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${accountId}/analytics_engine/sql`,
+    {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiToken}`, 'Content-Type': 'text/plain' },
+      body: sql,
+    }
+  );
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => res.statusText);
+    throw new Error(`Cloudflare ${res.status}: ${txt}`);
+  }
+
+  const json = await res.json();
+  return json.data || [];
+}
+
+// ── Formatters ────────────────────────────────────────────────────────────────
+
+const fmt = {
+  ms(v)   { if (v == null || v === '') return '—'; const n = Number(v); return n < 1000 ? `${Math.round(n)}ms` : `${(n/1000).toFixed(1)}s`; },
+  cost(v) { if (v == null || v === '') return '—'; return `$${Number(v).toFixed(4)}`; },
+  pct(v)  { if (v == null || v === '') return '—'; return `${Number(v).toFixed(1)}%`; },
+  num(v)  { if (v == null || v === '') return '—'; return Number(v).toLocaleString(); },
+  ts(v) {
+    if (!v) return '—';
+    const d = new Date(typeof v === 'number' ? v * 1000 : v);
+    const diff = Date.now() - d.getTime();
+    if (diff < 60e3)   return 'just now';
+    if (diff < 3600e3) return `${Math.round(diff/60e3)}m ago`;
+    if (diff < 86400e3) return `${Math.round(diff/3600e3)}h ago`;
+    return `${Math.round(diff/86400e3)}d ago`;
+  },
+};
+
+function loading(id, cols) {
+  document.getElementById(id).innerHTML =
+    `<tr class="loading-row"><td colspan="${cols}"><span class="spinner"></span> Loading...</td></tr>`;
+}
+
+function empty(id, cols, msg = 'No data') {
+  document.getElementById(id).innerHTML =
+    `<tr class="empty-row"><td colspan="${cols}">${msg}</td></tr>`;
+}
+
+// ── Overview cards ────────────────────────────────────────────────────────────
+// Column layout for generation events:
+//   blob1=event_type blob2=status blob3=title blob4=artist blob5=error_msg
+//   blob6=target_lang blob7=learner_lang
+//   double1=wall_ms double2=phase_base_ms double3=phase_parallel_ms
+//   double4=total_lines double5=unique_lines double6=prompt_tokens
+//   double7=completion_tokens double8=cost_usd double9=error_count
+
+async function loadOverview() {
+  const tf = timeFilter();
+  const rows = await query(`
+    SELECT
+      countIf(blob2 = 'done')  AS done_count,
+      countIf(blob2 = 'error') AS error_count,
+      round(sum(double8), 4)   AS total_cost,
+      round(avg(double1), 0)   AS avg_wall_ms,
+      sum(double4 - double5)   AS dedup_saved
+    FROM humdard
+    WHERE blob1 = 'generation' ${tf}
+  `);
+
+  if (!rows.length) return;
+  const r = rows[0];
+
+  const done   = Number(r.done_count  || 0);
+  const errors = Number(r.error_count || 0);
+  const total  = done + errors;
+  const errPct = total > 0 ? errors / total * 100 : 0;
+
+  document.getElementById('c-done').textContent     = fmt.num(done);
+  document.getElementById('c-done-sub').textContent = `${fmt.num(total)} total attempts`;
+
+  const cErr = document.getElementById('c-err-rate');
+  cErr.textContent = fmt.pct(errPct);
+  cErr.className   = 'card-value ' + (errPct > 10 ? 'red' : errPct > 0 ? '' : 'green');
+  document.getElementById('c-err-sub').textContent = `${fmt.num(errors)} failed`;
+
+  document.getElementById('c-cost').textContent     = fmt.cost(r.total_cost);
+  const perSong = done > 0 ? Number(r.total_cost || 0) / done : 0;
+  document.getElementById('c-cost-sub').textContent = `~${fmt.cost(perSong)} per song`;
+
+  document.getElementById('c-avg-time').textContent = fmt.ms(r.avg_wall_ms);
+  document.getElementById('c-dedup').textContent    = fmt.num(r.dedup_saved);
+}
+
+// ── Recent generations ────────────────────────────────────────────────────────
+
+async function loadGenerations() {
+  loading('gen-table', 12);
+  const tf = timeFilter();
+  const rows = await query(`
+    SELECT
+      blob3   AS title,
+      blob4   AS artist,
+      blob2   AS status,
+      blob5   AS error_message,
+      blob6   AS target_lang,
+      double1 AS wall_ms,
+      double2 AS phase_base_ms,
+      double3 AS phase_parallel_ms,
+      double4 AS total_lines,
+      double5 AS unique_lines,
+      double8 AS cost_usd,
+      double9 AS error_count,
+      timestamp
+    FROM humdard
+    WHERE blob1 = 'generation' ${tf}
+    ORDER BY timestamp DESC
+    LIMIT 20
+  `);
+
+  const tbody = document.getElementById('gen-table');
+  if (!rows.length) { empty('gen-table', 12, 'No generations yet'); return; }
+
+  tbody.innerHTML = rows.map(r => {
+    const errs = Number(r.error_count || 0);
+    const errHint = r.error_message ? `<div class="err-msg">${esc(r.error_message)}</div>` : '';
+    return `<tr>
+      <td><strong>${esc(r.title || '—')}</strong>${errHint}</td>
+      <td style="color:var(--muted)">${esc(r.artist || '—')}</td>
+      <td><span class="badge ${r.status}">${r.status}</span></td>
+      <td class="mono">${fmt.num(r.total_lines)}</td>
+      <td class="mono">${fmt.num(r.unique_lines)}</td>
+      <td class="mono">${fmt.cost(r.cost_usd)}</td>
+      <td class="mono" style="color:var(--muted)">${fmt.ms(r.phase_base_ms)}</td>
+      <td class="mono" style="color:var(--muted)">${fmt.ms(r.phase_parallel_ms)}</td>
+      <td class="mono">${fmt.ms(r.wall_ms)}</td>
+      <td class="mono" style="color:${errs > 0 ? 'var(--red)' : 'var(--muted)'}">${errs || '—'}</td>
+      <td style="color:var(--muted)">${esc(r.target_lang || '—')}</td>
+      <td style="color:var(--muted);white-space:nowrap">${fmt.ts(r.timestamp)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── OpenAI calls ──────────────────────────────────────────────────────────────
+// Column layout for openai_call events:
+//   blob1=event_type blob2=schema_name blob3=model
+//   double1=wall_ms double2=prompt_tokens double3=completion_tokens double4=success(1/0)
+
+async function loadOpenAICalls() {
+  loading('oai-table', 7);
+  const tf = timeFilter();
+  const rows = await query(`
+    SELECT
+      blob2 AS schema_name,
+      blob3 AS model,
+      count() AS total_calls,
+      round(100.0 * countIf(double4 = 1) / count(), 1) AS success_rate,
+      round(avg(double1), 0) AS avg_wall_ms,
+      round(sum(double2), 0) AS total_prompt_tokens,
+      round(sum(double3), 0) AS total_completion_tokens
+    FROM humdard
+    WHERE blob1 = 'openai_call' ${tf}
+    GROUP BY blob2, blob3
+    ORDER BY total_calls DESC
+  `);
+
+  const tbody = document.getElementById('oai-table');
+  if (!rows.length) { empty('oai-table', 7); return; }
+
+  tbody.innerHTML = rows.map(r => {
+    const sr = Number(r.success_rate || 0);
+    return `<tr>
+      <td class="mono">${esc(r.schema_name)}</td>
+      <td style="color:var(--muted);font-size:11px">${esc(r.model)}</td>
+      <td class="mono">${fmt.num(r.total_calls)}</td>
+      <td class="mono">${fmt.ms(r.avg_wall_ms)}</td>
+      <td class="mono" style="color:${sr < 90 ? 'var(--red)' : 'var(--green)'}">${fmt.pct(sr)}</td>
+      <td class="mono" style="color:var(--muted)">${fmt.num(r.total_prompt_tokens)}</td>
+      <td class="mono" style="color:var(--muted)">${fmt.num(r.total_completion_tokens)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── API requests ──────────────────────────────────────────────────────────────
+// Column layout for api_request events:
+//   blob1=event_type blob2=endpoint blob3=method
+//   double1=status_code double2=wall_ms
+
+async function loadApiRequests() {
+  loading('api-table', 5);
+  const tf = timeFilter();
+  const rows = await query(`
+    SELECT
+      blob2 AS endpoint,
+      blob3 AS method,
+      count() AS total_requests,
+      round(avg(double2), 0) AS avg_wall_ms,
+      round(100.0 * countIf(double1 >= 400) / count(), 1) AS error_rate
+    FROM humdard
+    WHERE blob1 = 'api_request' ${tf}
+    GROUP BY blob2, blob3
+    ORDER BY total_requests DESC
+  `);
+
+  const tbody = document.getElementById('api-table');
+  if (!rows.length) { empty('api-table', 5); return; }
+
+  tbody.innerHTML = rows.map(r => {
+    const er = Number(r.error_rate || 0);
+    return `<tr>
+      <td class="mono">${esc(r.endpoint)}</td>
+      <td style="color:var(--muted);font-size:11px">${esc(r.method)}</td>
+      <td class="mono">${fmt.num(r.total_requests)}</td>
+      <td class="mono">${fmt.ms(r.avg_wall_ms)}</td>
+      <td class="mono" style="color:${er > 10 ? 'var(--red)' : 'var(--muted)'}">${fmt.pct(er)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Error log ─────────────────────────────────────────────────────────────────
+
+async function loadErrors() {
+  loading('err-table', 4);
+  const tf = timeFilter();
+  const rows = await query(`
+    SELECT
+      timestamp,
+      blob3 AS title,
+      blob4 AS artist,
+      blob5 AS error_message
+    FROM humdard
+    WHERE blob1 = 'generation' AND blob2 = 'error' ${tf}
+    ORDER BY timestamp DESC
+    LIMIT 10
+  `);
+
+  const tbody = document.getElementById('err-table');
+  if (!rows.length) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="4" style="color:var(--green)">✓ No errors in this window</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(r => `<tr>
+    <td style="color:var(--muted);white-space:nowrap">${fmt.ts(r.timestamp)}</td>
+    <td><strong>${esc(r.title || '—')}</strong></td>
+    <td style="color:var(--muted)">${esc(r.artist || '—')}</td>
+    <td class="err-msg" style="max-width:600px">${esc(r.error_message || '—')}</td>
+  </tr>`).join('');
+}
+
+// ── Refresh ───────────────────────────────────────────────────────────────────
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function refresh() {
+  const btn    = document.getElementById('refresh-btn');
+  const banner = document.getElementById('error-banner');
+  btn.disabled = true;
+  btn.textContent = '↻ Loading...';
+  banner.classList.remove('show');
+
+  try {
+    await Promise.all([
+      loadOverview().catch(e => { throw e; }),
+      loadGenerations().catch(e => { throw e; }),
+      loadOpenAICalls().catch(e => { throw e; }),
+      loadApiRequests().catch(e => { throw e; }),
+      loadErrors().catch(e => { throw e; }),
+    ]);
+    document.getElementById('last-refresh').textContent =
+      `Updated ${new Date().toLocaleTimeString()}`;
+  } catch (err) {
+    banner.textContent = err.message;
+    banner.classList.add('show');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '↻ Refresh';
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+
+loadConfig();
+refresh();
+</script>
+</body>
+</html>

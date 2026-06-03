@@ -233,47 +233,30 @@ export function validateLyricLesson(data: any): LyricLesson {
         );
       }
 
-      // Validate each token
-      line.tokens.forEach((token: any, tokenIdx: number) => {
+      // Filter out malformed tokens rather than aborting the whole song.
+      // A single bad token should not invalidate a 50-line lesson.
+      line.tokens = line.tokens.filter((token: any, tokenIdx: number) => {
         if (!token || typeof token !== 'object') {
-          throw new ValidationError(
-            `Invalid token at line ${line.lineId}, token index ${tokenIdx}`,
-            'BAD_MODEL_OUTPUT',
-            { field: `sections[${idx}].lines[${lineIdx}].tokens[${tokenIdx}]` }
-          );
+          console.warn(`Dropping malformed token at line ${line.lineId} index ${tokenIdx}: not an object`);
+          return false;
         }
-
         if (!token.id || typeof token.id !== 'string') {
-          throw new ValidationError(
-            `Invalid token.id at line ${line.lineId}, token index ${tokenIdx}`,
-            'BAD_MODEL_OUTPUT',
-            { field: `sections[${idx}].lines[${lineIdx}].tokens[${tokenIdx}].id` }
-          );
+          console.warn(`Dropping token at line ${line.lineId} index ${tokenIdx}: missing id`);
+          return false;
         }
-
         if (!token.surface || typeof token.surface !== 'string') {
-          throw new ValidationError(
-            `Invalid token.surface at line ${line.lineId}, token index ${tokenIdx}`,
-            'BAD_MODEL_OUTPUT',
-            { field: `sections[${idx}].lines[${lineIdx}].tokens[${tokenIdx}].surface` }
-          );
+          console.warn(`Dropping token at line ${line.lineId} index ${tokenIdx}: missing surface`);
+          return false;
         }
-
         if (!token.roman || typeof token.roman !== 'string') {
-          throw new ValidationError(
-            `Invalid token.roman at line ${line.lineId}, token index ${tokenIdx}`,
-            'BAD_MODEL_OUTPUT',
-            { field: `sections[${idx}].lines[${lineIdx}].tokens[${tokenIdx}].roman` }
-          );
+          console.warn(`Dropping token at line ${line.lineId} index ${tokenIdx}: missing roman`);
+          return false;
         }
-
         if (!token.gloss || typeof token.gloss !== 'string') {
-          throw new ValidationError(
-            `Invalid token.gloss at line ${line.lineId}, token index ${tokenIdx}`,
-            'BAD_MODEL_OUTPUT',
-            { field: `sections[${idx}].lines[${lineIdx}].tokens[${tokenIdx}].gloss` }
-          );
+          console.warn(`Dropping token at line ${line.lineId} index ${tokenIdx}: missing gloss`);
+          return false;
         }
+        return true;
       });
     });
   });

@@ -125,54 +125,6 @@
 
     .last-refresh { font-size: 11px; color: var(--muted); }
 
-    /* ── Config panel ────────────────────────────────────────── */
-    #config-panel {
-      display: none;
-      align-items: flex-end;
-      gap: 14px;
-      padding: 14px 20px;
-      border-bottom: 1px solid var(--border);
-      background: var(--surface);
-    }
-
-    #config-panel.open { display: flex; }
-
-    .cf { display: flex; flex-direction: column; gap: 4px; }
-
-    .cf label {
-      font-size: 10px;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
-
-    .cf input {
-      padding: 6px 10px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      font-family: var(--mono);
-      font-size: 12px;
-      width: 300px;
-      outline: none;
-    }
-
-    .cf input:focus { border-color: var(--accent); }
-
-    .save-btn {
-      padding: 7px 16px;
-      background: var(--accent);
-      border: none;
-      color: #000;
-      font-weight: 700;
-      font-size: 12px;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-
-    .config-note { font-size: 11px; color: var(--muted); padding-bottom: 1px; }
-
     /* ── Main ────────────────────────────────────────────────── */
     main {
       padding: 20px;
@@ -387,21 +339,7 @@
   <span class="last-refresh" id="last-refresh">—</span>
   <button class="icon-btn primary" id="refresh-btn" onclick="refresh()">↻ Refresh</button>
   <button class="icon-btn" id="auto-btn" onclick="toggleAutoRefresh()">▶ Live</button>
-  <button class="config-btn" onclick="toggleConfig()" title="Configure">⚙</button>
 </header>
-
-<div id="config-panel">
-  <div class="cf">
-    <label>Account ID</label>
-    <input id="account-id" type="text" placeholder="a1b2c3d4...">
-  </div>
-  <div class="cf">
-    <label>API Token</label>
-    <input id="api-token" type="password" placeholder="Analytics Engine Read token">
-  </div>
-  <button class="save-btn" onclick="saveConfig()">Save &amp; Refresh</button>
-  <span class="config-note">Token needs <em>Account Analytics: Read</em> permission</span>
-</div>
 
 <main>
   <div id="error-banner"></div>
@@ -550,24 +488,6 @@
 </main>
 
 <script>
-// ── Config ────────────────────────────────────────────────────────────────────
-
-function loadConfig() {
-  document.getElementById('account-id').value = localStorage.getItem('cf_account_id') || '';
-  document.getElementById('api-token').value  = localStorage.getItem('cf_api_token')  || '';
-}
-
-function saveConfig() {
-  localStorage.setItem('cf_account_id', document.getElementById('account-id').value.trim());
-  localStorage.setItem('cf_api_token',  document.getElementById('api-token').value.trim());
-  document.getElementById('config-panel').classList.remove('open');
-  refresh();
-}
-
-function toggleConfig() {
-  document.getElementById('config-panel').classList.toggle('open');
-}
-
 // ── Auto-refresh ──────────────────────────────────────────────────────────────
 
 let autoRefreshTimer = null;
@@ -607,28 +527,18 @@ function timeFilter() {
   return '';
 }
 
-// ── Query ─────────────────────────────────────────────────────────────────────
+// ── Query — talks to local proxy (serve.py) which forwards to Cloudflare ──────
 
 async function query(sql) {
-  const accountId = localStorage.getItem('cf_account_id');
-  const apiToken  = localStorage.getItem('cf_api_token');
-
-  if (!accountId || !apiToken) {
-    throw new Error('No credentials — click ⚙ to enter your Cloudflare Account ID and API token.');
-  }
-
-  const res = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${accountId}/analytics_engine/sql`,
-    {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${apiToken}`, 'Content-Type': 'text/plain' },
-      body: sql,
-    }
-  );
+  const res = await fetch('/cf-query', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: sql }),
+  });
 
   if (!res.ok) {
     const txt = await res.text().catch(() => res.statusText);
-    throw new Error(`Cloudflare ${res.status}: ${txt}`);
+    throw new Error(`Query failed ${res.status}: ${txt}`);
   }
 
   const json = await res.json();
@@ -1021,7 +931,6 @@ async function refresh() {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
-loadConfig();
 refresh();
 </script>
 </body>

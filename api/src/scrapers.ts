@@ -265,6 +265,14 @@ export async function searchLyricsRaag(
     pageUrl = pageUrl ?? translationFallback;
     if (!pageUrl) { console.warn('[lyricsraag] no result link'); return null; }
 
+    // Slug check before fetching — reject pages where title words don't appear in the URL slug
+    const urlSlug = new URL(pageUrl).pathname.replace(/-lyrics\/?$/, '').split('/').filter(Boolean).pop() ?? '';
+    const slugNorm = urlSlug.replace(/-/g, ' ');
+    if (slugNorm && !titleMatches(title, slugNorm)) {
+      console.warn(`[lyricsraag] slug mismatch early exit: "${title}" vs "${slugNorm}"`);
+      return null;
+    }
+
     const pageRes = await fetchWithTimeout(pageUrl);
     if (!pageRes.ok) { console.warn(`[lyricsraag] page ${pageRes.status}`); return null; }
     const pageHtml = await pageRes.text();
@@ -285,9 +293,16 @@ export async function searchLyricsRaag(
     const cleanText = htmlToText(rawText).replace(/\r\n/g, '\n').trim();
     const detected = detectScript(cleanText);
 
-    const songTitle = ld?.name ?? ld?.recordingOf?.name ?? title;
-    if (!titleMatches(title, songTitle ?? '')) {
-      console.warn(`[lyricsraag] title mismatch: "${title}" vs "${songTitle}"`);
+    const ldName = ld?.name ?? ld?.recordingOf?.name;
+    const songTitle = ldName ?? (() => {
+      // No JSON-LD name — extract from HTML <title> tag
+      // LyricsRaag format: "Tum Bin Lyrics – Sanam Re | Shreya Ghoshal | LyricsRaag"
+      const raw = pageHtml.match(/<title>([^<]+)<\/title>/i)?.[1]?.trim() ?? '';
+      return raw.replace(/\s+lyrics\b.*/i, '').replace(/\s*[-–|].*/, '').trim();
+    })();
+    // Empty songTitle means we can't verify — safer to reject than return wrong lyrics
+    if (!songTitle || !titleMatches(title, songTitle)) {
+      console.warn(`[lyricsraag] title mismatch: "${title}" vs "${songTitle || '(empty)'}"`);
       return null;
     }
 

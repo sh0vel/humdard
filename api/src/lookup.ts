@@ -16,6 +16,7 @@ import {
   searchLyricsRaag,
   searchGenius,
   searchYouTube,
+  searchLyricalSansar,
 } from './scrapers';
 import { Env } from './types';
 
@@ -69,6 +70,7 @@ export async function lookupLyrics(
     searchLyricsDex(title, artist),
     searchLyricsRaag(title, artist),
     searchGenius(title, artist),
+    searchLyricalSansar(title, artist),
   ]);
 
   let results: RawLyricResult[] = [];

@@ -7,7 +7,7 @@
  */
 
 export interface RawLyricResult {
-  source: 'lyricsdex' | 'lyricsraag' | 'genius' | 'youtube';
+  source: 'lyricsdex' | 'lyricsraag' | 'genius' | 'youtube' | 'lyricalsansar';
   url: string;
   title: string;
   artist: string;
@@ -552,6 +552,71 @@ export async function searchYouTube(
     };
   } catch (err) {
     console.warn('[youtube] error:', err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+// ── LyricalSansar ─────────────────────────────────────────────────────────────
+
+export async function searchLyricalSansar(
+  title: string,
+  artist: string | undefined
+): Promise<RawLyricResult | null> {
+  try {
+    // WordPress REST API search — much more reliable than scraping search results HTML
+    const searchRes = await fetchWithTimeout(
+      `https://lyricalsansar.com/wp-json/wp/v2/posts?search=${encodeURIComponent(title)}&per_page=20&_fields=title,link`
+    );
+    if (!searchRes.ok) { console.warn(`[lyricalsansar] search ${searchRes.status}`); return null; }
+    const posts = (await searchRes.json()) as { title: { rendered: string }; link: string }[];
+
+    let pageUrl: string | null = null;
+    let foundArtist = '';
+    for (const post of posts) {
+      // Post title format: "Khoya Lyrics – Akshath Acharya & Rovalio"
+      const decoded = htmlToText(post.title.rendered);
+      const songPart = decoded.replace(/\s+lyrics\b.*/i, '').trim();
+      if (!titleMatches(title, songPart)) continue;
+
+      const artistPart = decoded.replace(/^.*\blyrics\b\s*[-–]\s*/i, '').trim();
+      if (artist && artistPart && !artistOverlap(artist, artistPart)) continue;
+
+      pageUrl = post.link;
+      foundArtist = artistPart;
+      break;
+    }
+
+    if (!pageUrl) { console.warn('[lyricalsansar] no matching post'); return null; }
+
+    const pageRes = await fetchWithTimeout(pageUrl);
+    if (!pageRes.ok) { console.warn(`[lyricalsansar] page ${pageRes.status}`); return null; }
+    const pageHtml = await pageRes.text();
+
+    // Lyric stanzas are <p> tags containing <br> tags; stop at the "End The Lyrics" marker
+    const stanzas: string[] = [];
+    for (const [, inner] of pageHtml.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)) {
+      if (/end\s+the\s+lyrics/i.test(inner)) break;
+      if (!inner.includes('<br')) continue;
+      const text = htmlToText(inner).trim();
+      if (text.length >= 10) stanzas.push(text);
+    }
+
+    if (stanzas.length === 0) { console.warn('[lyricalsansar] no lyrics found'); return null; }
+    const rawText = stanzas.join('\n\n');
+    const detected = detectScript(rawText);
+
+    console.log(`[lyricalsansar] ✓ "${title}" (${detected ?? 'roman'}, ${rawText.length}c)`);
+    return {
+      source: 'lyricalsansar',
+      url: pageUrl,
+      title,
+      artist: foundArtist || artist || '',
+      rawText,
+      scriptHint: detected ? 'native' : 'roman',
+      detectedScript: detected,
+    };
+  } catch (err) {
+    console.warn('[lyricalsansar] error:', err instanceof Error ? err.message : err);
     return null;
   }
 }

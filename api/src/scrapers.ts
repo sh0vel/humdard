@@ -109,7 +109,9 @@ async function extractFirstText(html: string, selector: string): Promise<string>
 // ── Shared utilities ──────────────────────────────────────────────────────────
 
 function buildQuery(title: string, artist?: string): string {
-  return encodeURIComponent(artist ? `${title} ${artist}` : title);
+  // Use only the primary artist (first comma-separated value) to avoid over-constraining search
+  const primaryArtist = artist?.split(',')[0].trim();
+  return encodeURIComponent(primaryArtist ? `${title} ${primaryArtist}` : title);
 }
 
 function titleMatches(query: string, found: string): boolean {

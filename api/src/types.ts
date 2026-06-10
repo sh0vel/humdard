@@ -16,6 +16,7 @@ export interface Env {
   SPOTIFY_CLIENT_SECRET: string;
   YOUTUBE_API_KEY?: string;
   ANALYTICS?: AnalyticsEngineDataset;
+  CLERK_SECRET_KEY?: string;
 }
 
 // ============================================================================

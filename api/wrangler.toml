@@ -1,6 +1,7 @@
 name = "humdard-lyric-api"
 main = "src/index.ts"
 compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
 
 # R2 Bucket Binding
 [[r2_buckets]]
@@ -33,6 +34,7 @@ dataset = "humdard"
 # - OPENAI_API_KEY: Your OpenAI API key
 # - SPOTIFY_CLIENT_SECRET: Your Spotify app client secret
 # - YOUTUBE_API_KEY: YouTube Data API v3 key (enables description-based lyric lookup)
+# - CLERK_SECRET_KEY: Clerk secret key (sk_live_...) for JWT verification
 
 # Local dev
 [env.development]
@@ -44,6 +46,7 @@ vars = { ALLOWED_ORIGINS = "*", OPENAI_MODEL = "gpt-4o" }
 # Secrets must be set once: npx wrangler secret put OPENAI_API_KEY --env preview
 [env.preview]
 name = "humdard-lyric-api-preview"
+compatibility_flags = ["nodejs_compat"]
 vars = { ALLOWED_ORIGINS = "*", OPENAI_MODEL = "gpt-4o", SPOTIFY_CLIENT_ID = "55c2275c63634074aa13b4d40e359e6f" }
 
 [[env.preview.r2_buckets]]
@@ -68,6 +71,7 @@ dataset = "humdard"
 # Usage: npx wrangler deploy --env production
 [env.production]
 name = "humdard-lyric-api"
+compatibility_flags = ["nodejs_compat"]
 vars = { ALLOWED_ORIGINS = "*", OPENAI_MODEL = "gpt-4o", SPOTIFY_CLIENT_ID = "55c2275c63634074aa13b4d40e359e6f" }
 
 [[env.production.r2_buckets]]

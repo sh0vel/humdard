@@ -11,6 +11,7 @@ import { lookupLyrics } from './lookup';
 import { validateJsonifyRequest, validateLyricLesson, ValidationError, normalizeLyrics } from './validate';
 import { generateSongId, generateFullHash } from './utils';
 import { trackApiRequest, trackGeneration, trackRetranslateLine, trackLookup, normalizeEndpoint, parseLookupSource } from './analytics';
+import { requireAuth } from './auth';
 
 /**
  * Main request handler + queue consumer
@@ -34,6 +35,15 @@ export default {
     try {
       const url = new URL(request.url);
       const path = url.pathname;
+
+      // Auth check for protected routes
+      if (isProtectedRoute(path, request.method)) {
+        const auth = await requireAuth(request, env);
+        if (auth instanceof Response) {
+          return addCorsHeaders(auth, request, env);
+        }
+        // auth.userId available here for Phase 5 per-user storage
+      }
 
       // Route requests
       let response: Response;
@@ -748,6 +758,23 @@ async function handleSpotifySearch(request: Request, env: Env): Promise<Response
   });
 
   return jsonResponse({ tracks });
+}
+
+/**
+ * Returns true for routes that require a valid Clerk session token.
+ * Open routes: GET /api/v1/songs/:id (shared links), GET /api/v1/jobs/:id.
+ */
+function isProtectedRoute(path: string, method: string): boolean {
+  if (path === '/api/v1/songs' && method === 'GET') return true;
+  if (path === '/api/v1/jsonify' && method === 'POST') return true;
+  if (path === '/api/v1/lookup' && method === 'POST') return true;
+  // DELETE /api/v1/songs/:id  (but NOT sub-paths like /lines/:lineId/*)
+  if (method === 'DELETE' && /^\/api\/v1\/songs\/[^/]+$/.test(path)) return true;
+  // Line edits and song retranslation
+  if (method === 'PATCH' && path.includes('/lines/')) return true;
+  if (method === 'POST' && /^\/api\/v1\/songs\/[^/]+\/retranslate$/.test(path)) return true;
+  if (method === 'POST' && path.includes('/lines/')) return true;
+  return false;
 }
 
 /**

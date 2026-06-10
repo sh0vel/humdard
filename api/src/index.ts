@@ -5,7 +5,7 @@
 
 import { Env, JsonifyQueuedResponse, JsonifyQueueMessage, SongsListResponse, LyricLesson, LyricLine, JobStatus } from './types';
 import { handleCorsPreFlight, addCorsHeaders } from './cors';
-import { getSong, putSong, listMetas, putMeta, getMeta, deleteSong, updateLine, deleteLineFromSong, getJob, putJob, insertInstrumentalBefore } from './storage';
+import { getSong, putSong, listMetas, putMeta, getMeta, deleteSong, updateLine, deleteLineFromSong, getJob, putJob, insertInstrumentalBefore, songCacheKey, getCachedSongId, setCachedSongId } from './storage';
 import { generateLyricLesson, retranslateLine } from './openai';
 import { lookupLyrics } from './lookup';
 import { validateJsonifyRequest, validateLyricLesson, ValidationError, normalizeLyrics } from './validate';
@@ -74,6 +74,8 @@ export default {
         response = await handleBackfillImages(env);
       } else if (path === '/api/v1/admin/reset-updated-at' && request.method === 'POST') {
         response = await handleResetUpdatedAt(env);
+      } else if (path === '/api/v1/admin/backfill-cache' && request.method === 'POST') {
+        response = await handleBackfillCache(env);
       } else {
         response = jsonResponse(
           { error: { code: 'NOT_FOUND', message: 'Endpoint not found' } },
@@ -301,7 +303,21 @@ async function handleJsonify(request: Request, env: Env): Promise<Response> {
 
     const { rawLyrics, titleHint, artistHint, language } = validatedRequest;
     const imageUrl = typeof (body as any).imageUrl === 'string' ? (body as any).imageUrl : undefined;
+    const force = (body as any).force === true;
     const normalizedLyrics = normalizeLyrics(rawLyrics);
+
+    // Cache check: skip for retranslates or when force=true or when title/artist are missing
+    if (!force && titleHint && artistHint) {
+      const hash = await songCacheKey(titleHint, artistHint);
+      const cachedSongId = await getCachedSongId(env, hash);
+      if (cachedSongId) {
+        const jobId = crypto.randomUUID();
+        const now = new Date().toISOString();
+        await putJob(env, { jobId, status: 'done', songId: cachedSongId, createdAt: now, updatedAt: now });
+        console.log(`[jsonify] cache hit for "${titleHint}" / "${artistHint}" → ${cachedSongId}`);
+        return jsonResponse({ jobId } as JsonifyQueuedResponse, 202);
+      }
+    }
 
     const jobId = crypto.randomUUID();
     const now = new Date().toISOString();
@@ -401,6 +417,12 @@ async function processGenerationJob(env: Env, msg: JsonifyQueueMessage): Promise
       language: { target: targetLang, learner: learnerLang },
       openaiUsage,
     });
+
+    // Write to cache so future identical requests return instantly
+    if (titleHint && artistHint) {
+      const hash = await songCacheKey(titleHint, artistHint);
+      await setCachedSongId(env, hash, finalSongId, titleHint, artistHint);
+    }
 
     await updateJob({ status: 'done', songId: finalSongId });
     console.log(`[queue] job ${jobId} done → ${finalSongId}`);
@@ -726,6 +748,26 @@ async function handleSpotifySearch(request: Request, env: Env): Promise<Response
   });
 
   return jsonResponse({ tracks });
+}
+
+/**
+ * POST /api/admin/backfill-cache — One-shot: populate cache/{hash}/meta.json for all existing songs.
+ */
+async function handleBackfillCache(env: Env): Promise<Response> {
+  const metas = await listMetas(env);
+  let written = 0;
+  let skipped = 0;
+
+  for (const meta of metas) {
+    if (!meta.title || !meta.artist) { skipped++; continue; }
+    const hash = await songCacheKey(meta.title, meta.artist);
+    const existing = await getCachedSongId(env, hash);
+    if (existing) { skipped++; continue; }
+    await setCachedSongId(env, hash, meta.songId, meta.title, meta.artist);
+    written++;
+  }
+
+  return jsonResponse({ total: metas.length, written, skipped });
 }
 
 /**

@@ -251,6 +251,40 @@ export async function deleteSong(
   }
 }
 
+// ── Song Cache ──────────────────────────────────────────────────────────────
+
+export async function songCacheKey(title: string, artist: string): Promise<string> {
+  const input = `${title.toLowerCase().trim()}|${artist.toLowerCase().trim()}`;
+  const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(buffer)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+export async function getCachedSongId(env: Env, hash: string): Promise<string | null> {
+  try {
+    const obj = await env.BUCKET.get(`cache/${hash}/meta.json`);
+    if (!obj) return null;
+    const meta = JSON.parse(await obj.text()) as { songId: string };
+    return meta.songId ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setCachedSongId(
+  env: Env,
+  hash: string,
+  songId: string,
+  title: string,
+  artist: string
+): Promise<void> {
+  const meta = { title, artist, songId, cachedAt: new Date().toISOString() };
+  await env.BUCKET.put(`cache/${hash}/meta.json`, JSON.stringify(meta), {
+    httpMetadata: { contentType: 'application/json' },
+  });
+}
+
+// ── Song Metadata List ───────────────────────────────────────────────────────
+
 /**
  * List all song metadata from R2
  */

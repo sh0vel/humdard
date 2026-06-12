@@ -458,6 +458,44 @@ function calculateCost(promptTokens: number, completionTokens: number): number {
 }
 
 // ============================================================================
+// Retry helpers
+// ============================================================================
+
+const MAX_ATTEMPTS = 3;
+
+function jitteredBackoffMs(attempt: number, baseMs = 2_000, capMs = 30_000): number {
+  return Math.random() * Math.min(capMs, baseMs * Math.pow(2, attempt));
+}
+
+function isTransient(error: unknown): boolean {
+  const msg = (error instanceof Error ? error.message : String(error)).toLowerCase();
+  return (
+    msg.includes('429') || msg.includes('rate limit') || msg.includes('overloaded') ||
+    msg.includes('500') || msg.includes('502') || msg.includes('503') || msg.includes('504') ||
+    msg.includes('timeout') || msg.includes('timed out') ||
+    msg.includes('network') || msg.includes('fetch failed') || msg.includes('econnreset')
+  );
+}
+
+async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    if (attempt > 0) {
+      const delayMs = jitteredBackoffMs(attempt);
+      console.warn(`[openai] ${label} retry ${attempt}/${MAX_ATTEMPTS - 1} after ${Math.round(delayMs)}ms`);
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      if (!isTransient(err)) break;
+    }
+  }
+  throw lastError;
+}
+
+// ============================================================================
 // Core OpenAI call
 // ============================================================================
 
@@ -604,15 +642,18 @@ async function generateTranslations(
   const errors: import('./types').GenerationError[] = [];
 
   try {
-    ({ result, promptTokens, completionTokens } = await callOpenAI<{ lines: { lineId: string; translation: string }[] }>(
-      env,
-      [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      TRANSLATION_SCHEMA,
-      `translation_${type}`,
-      'gpt-5.5'
+    ({ result, promptTokens, completionTokens } = await withRetry(
+      () => callOpenAI<{ lines: { lineId: string; translation: string }[] }>(
+        env,
+        [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        TRANSLATION_SCHEMA,
+        `translation_${type}`,
+        'gpt-5.5'
+      ),
+      `translation_${type}`
     ));
   } catch (e) {
     for (const l of lines) errors.push({ lineId: l.lineId, type, error: String(e) });
@@ -647,15 +688,18 @@ async function generateTokens(
   const results = await Promise.all(
     lines.map(l => {
       const userPrompt = `${songCtx}${l.lineId} | ${l.target} | ${l.roman}\n\nProduce tokens for this line.`;
-      return callOpenAI<{ lines: { lineId: string; tokens: import('./types').LyricToken[] }[] }>(
-        env,
-        [
-          { role: 'system', content: TOKEN_SYSTEM_PROMPT },
-          { role: 'user', content: userPrompt },
-        ],
-        TOKEN_SCHEMA,
-        'tokens',
-        'gpt-4o'
+      return withRetry(
+        () => callOpenAI<{ lines: { lineId: string; tokens: import('./types').LyricToken[] }[] }>(
+          env,
+          [
+            { role: 'system', content: TOKEN_SYSTEM_PROMPT },
+            { role: 'user', content: userPrompt },
+          ],
+          TOKEN_SCHEMA,
+          'tokens',
+          'gpt-4o'
+        ),
+        `tokens:${l.lineId}`
       )
         .then(r => ({ ...r, lineId: l.lineId, failed: false, errorMsg: '' }))
         .catch((e: unknown) => ({ result: { lines: [] as { lineId: string; tokens: import('./types').LyricToken[] }[] }, promptTokens: 0, completionTokens: 0, lineId: l.lineId, failed: true, errorMsg: String(e) }));

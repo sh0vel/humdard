@@ -54,6 +54,12 @@ function cleanTitle(title: string): string {
     .replace(/\s*[-–]\s*from\s+['"]?.+['"]?\s*$/gi, '')
     // "(feat. ...)" / "(ft. ...)" / "[feat. ...]"
     .replace(/[\[(]\s*f(?:ea)?t\.?\s+[^\])\n]+[\])]/gi, '')
+    // "(with Artist)" / "(with Artist & Artist)"
+    .replace(/\(\s*with\s+[^)]+\)/gi, '')
+    // " - with Artist" at end of string
+    .replace(/\s*[-–]\s*with\s+.+$/gi, '')
+    // "(prod. ...)" / "(prod by ...)"
+    .replace(/\(\s*prod\.?(?:\s+by)?\s+[^)]+\)/gi, '')
     // trailing noise: "(Official Video)", "(Audio)", "(Lyrical)", "(Title Track)", "(OST)" etc.
     .replace(/\(\s*(?:official|audio|video|lyric(?:al)?|title\s+track|ost|soundtrack|full\s+song)[^)]*\)/gi, '')
     .trim();

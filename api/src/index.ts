@@ -376,6 +376,28 @@ async function handleGetJob(_request: Request, env: Env, jobId: string): Promise
   return jsonResponse(job, 200);
 }
 
+// ── Retry helpers ────────────────────────────────────────────────────────────
+
+const MAX_GENERATION_ATTEMPTS = 3;
+
+// Full jitter: sleep = random(0, min(cap, base * 2^attempt))
+// Avoids thundering herd on correlated failures better than equal or decorrelated jitter.
+function jitteredBackoffMs(attempt: number, baseMs = 2_000, capMs = 30_000): number {
+  const ceiling = Math.min(capMs, baseMs * Math.pow(2, attempt));
+  return Math.random() * ceiling;
+}
+
+function isTransient(error: unknown): boolean {
+  const msg = (error instanceof Error ? error.message : String(error)).toLowerCase();
+  // OpenAI rate limit, overload, server errors, network failures
+  return (
+    msg.includes('429') || msg.includes('rate limit') || msg.includes('overloaded') ||
+    msg.includes('500') || msg.includes('502') || msg.includes('503') || msg.includes('504') ||
+    msg.includes('timeout') || msg.includes('timed out') ||
+    msg.includes('network') || msg.includes('fetch failed') || msg.includes('econnreset')
+  );
+}
+
 /**
  * Queue consumer — runs the actual OpenAI generation for a queued job
  */
@@ -394,21 +416,38 @@ async function processGenerationJob(env: Env, msg: JsonifyQueueMessage): Promise
   };
 
   try {
-    // Generate a temporary song ID for use during generation
     const tempSongId = await generateSongId(titleHint || 'untitled', rawLyrics);
 
-    const { lesson, usage: openaiUsage, timing } = await generateLyricLesson(
-      env,
-      rawLyrics,
-      titleHint,
-      artistHint,
-      tempSongId,
-      targetLang,
-      learnerLang,
-      feedback
-    );
+    // Retry loop with full jitter — only wraps the OpenAI call
+    let lesson: Awaited<ReturnType<typeof generateLyricLesson>>['lesson'] | undefined;
+    let openaiUsage!: Awaited<ReturnType<typeof generateLyricLesson>>['usage'];
+    let timing!: Awaited<ReturnType<typeof generateLyricLesson>>['timing'];
+    let lastError: unknown;
 
-    const validatedLesson = validateLyricLesson(lesson);
+    for (let attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt++) {
+      if (attempt > 0) {
+        const delayMs = jitteredBackoffMs(attempt);
+        console.log(`[queue] job ${jobId} retry ${attempt}/${MAX_GENERATION_ATTEMPTS - 1} after ${Math.round(delayMs)}ms`);
+        await new Promise((r) => setTimeout(r, delayMs));
+      }
+      try {
+        ({ lesson, usage: openaiUsage, timing } = await generateLyricLesson(
+          env, rawLyrics, titleHint, artistHint, tempSongId, targetLang, learnerLang, feedback
+        ));
+        lastError = undefined;
+        break;
+      } catch (err) {
+        lastError = err;
+        if (!isTransient(err)) {
+          console.warn(`[queue] job ${jobId} permanent error, no retry:`, err instanceof Error ? err.message : err);
+          break;
+        }
+        console.warn(`[queue] job ${jobId} transient error (attempt ${attempt + 1}):`, err instanceof Error ? err.message : err);
+      }
+    }
+    if (lastError !== undefined) throw lastError;
+
+    const validatedLesson = validateLyricLesson(lesson!);
 
     let finalSongId = await generateSongId(validatedLesson.title, rawLyrics);
     if (await getSong(env, finalSongId)) {

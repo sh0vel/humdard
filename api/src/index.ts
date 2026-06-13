@@ -5,7 +5,7 @@
 
 import { Env, JsonifyQueuedResponse, JsonifyQueueMessage, SongsListResponse, LyricLesson, LyricLine, JobStatus } from './types';
 import { handleCorsPreFlight, addCorsHeaders } from './cors';
-import { getSong, putSong, listMetas, putMeta, getMeta, deleteSong, updateLine, deleteLineFromSong, getJob, putJob, insertInstrumentalBefore, songCacheKey, getCachedSongId, setCachedSongId } from './storage';
+import { getSong, putSong, listMetas, putMeta, getMeta, updateLine, deleteLineFromSong, getJob, putJob, insertInstrumentalBefore, songCacheKey, getCachedSongId, setCachedSongId, getUserSongs, addSongToUser, removeSongFromUser, getUserFavorites, addFavorite, removeFavorite } from './storage';
 import { generateLyricLesson, retranslateLine } from './openai';
 import { lookupLyrics } from './lookup';
 import { validateJsonifyRequest, validateLyricLesson, ValidationError, normalizeLyrics } from './validate';
@@ -37,19 +37,20 @@ export default {
       const path = url.pathname;
 
       // Auth check for protected routes
+      let authedUserId: string | undefined;
       if (isProtectedRoute(path, request.method)) {
         const auth = await requireAuth(request, env);
         if (auth instanceof Response) {
           return addCorsHeaders(auth, request, env);
         }
-        // auth.userId available here for Phase 5 per-user storage
+        authedUserId = auth.userId;
       }
 
       // Route requests
       let response: Response;
 
       if (path === '/api/v1/songs' && request.method === 'GET') {
-        response = await handleGetSongs(request, env);
+        response = await handleGetSongs(request, env, authedUserId!);
       } else if (path.startsWith('/api/v1/songs/') && request.method === 'GET') {
         const songId = path.split('/api/v1/songs/')[1];
         response = await handleGetSong(request, env, songId);
@@ -58,7 +59,7 @@ export default {
         response = await handleDeleteLine(request, env, songId, lineId);
       } else if (path.startsWith('/api/v1/songs/') && request.method === 'DELETE') {
         const songId = path.split('/api/v1/songs/')[1];
-        response = await handleDeleteSong(request, env, songId);
+        response = await handleDeleteSong(request, env, songId, authedUserId!);
       } else if (/^\/api\/v1\/songs\/[^/]+\/lines\/[^/]+$/.test(path) && request.method === 'PATCH') {
         const [, , , , songId, , lineId] = path.split('/');
         response = await handleUpdateLine(request, env, songId, lineId);
@@ -70,9 +71,9 @@ export default {
         response = await handleInsertInstrumental(request, env, songId, lineId);
       } else if (/^\/api\/v1\/songs\/[^/]+\/retranslate$/.test(path) && request.method === 'POST') {
         const songId = path.split('/')[4];
-        response = await handleRetranslateSong(request, env, songId);
+        response = await handleRetranslateSong(request, env, songId, authedUserId);
       } else if (path === '/api/v1/jsonify' && request.method === 'POST') {
-        response = await handleJsonify(request, env);
+        response = await handleJsonify(request, env, authedUserId);
       } else if (path.startsWith('/api/v1/jobs/') && request.method === 'GET') {
         const jobId = path.split('/api/v1/jobs/')[1];
         response = await handleGetJob(request, env, jobId);
@@ -86,6 +87,15 @@ export default {
         response = await handleResetUpdatedAt(env);
       } else if (path === '/api/v1/admin/backfill-cache' && request.method === 'POST') {
         response = await handleBackfillCache(env);
+      } else if (path === '/api/v1/admin/seed-user-songs' && request.method === 'POST') {
+        response = await handleSeedUserSongs(request, env);
+      } else if (path === '/api/v1/favorites' && request.method === 'GET') {
+        response = await handleGetFavorites(env, authedUserId!);
+      } else if (path === '/api/v1/favorites' && request.method === 'POST') {
+        response = await handleAddFavorite(request, env, authedUserId!);
+      } else if (request.method === 'DELETE' && /^\/api\/v1\/favorites\/[^/]+$/.test(path)) {
+        const lineId = path.split('/api/v1/favorites/')[1];
+        response = await handleDeleteFavorite(env, authedUserId!, lineId);
       } else {
         response = jsonResponse(
           { error: { code: 'NOT_FOUND', message: 'Endpoint not found' } },
@@ -132,15 +142,12 @@ export default {
 /**
  * GET /api/songs - List all songs
  */
-async function handleGetSongs(request: Request, env: Env): Promise<Response> {
+async function handleGetSongs(request: Request, env: Env, userId: string): Promise<Response> {
   try {
-    // Get all metadata from R2
-    const metas = await listMetas(env);
-    
-    // Sort by createdAt descending (updatedAt changes on retranslation)
-    const sortedMetas = metas.sort((a, b) => {
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
+    const songIds = await getUserSongs(env, userId);
+    const metaResults = await Promise.all(songIds.map((id) => getMeta(env, id)));
+    const sortedMetas = (metaResults.filter((m) => m !== null) as import('./types').SongMetadata[])
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     const responseBody: SongsListResponse = { songs: sortedMetas };
     
@@ -254,7 +261,7 @@ async function handleGetSong(request: Request, env: Env, songId: string): Promis
 /**
  * DELETE /api/songs/:songId - Delete a song
  */
-async function handleDeleteSong(_request: Request, env: Env, songId: string): Promise<Response> {
+async function handleDeleteSong(_request: Request, env: Env, songId: string, userId: string): Promise<Response> {
   try {
     if (!songId || songId.trim() === '') {
       return jsonResponse(
@@ -263,17 +270,7 @@ async function handleDeleteSong(_request: Request, env: Env, songId: string): Pr
       );
     }
 
-    // Check if song exists
-    const song = await getSong(env, songId);
-    if (!song) {
-      return jsonResponse(
-        { error: { code: 'NOT_FOUND', message: 'Song not found' } },
-        404
-      );
-    }
-
-    // Delete the song
-    await deleteSong(env, songId);
+    await removeSongFromUser(env, userId, songId);
 
     return jsonResponse({ success: true, songId }, 200);
   } catch (error) {
@@ -294,7 +291,7 @@ async function handleDeleteSong(_request: Request, env: Env, songId: string): Pr
 /**
  * POST /api/jsonify — Enqueue a song generation job; returns jobId immediately (202)
  */
-async function handleJsonify(request: Request, env: Env): Promise<Response> {
+async function handleJsonify(request: Request, env: Env, userId?: string): Promise<Response> {
   try {
     const body = await request.json().catch(() => null);
     if (!body) {
@@ -316,7 +313,7 @@ async function handleJsonify(request: Request, env: Env): Promise<Response> {
     const force = (body as any).force === true;
     const normalizedLyrics = normalizeLyrics(rawLyrics);
 
-    // Cache check: skip for retranslates or when force=true or when title/artist are missing
+    // Cache check: skip when force=true or when title/artist are missing
     if (!force && titleHint && artistHint) {
       const hash = await songCacheKey(titleHint, artistHint);
       const cachedSongId = await getCachedSongId(env, hash);
@@ -324,6 +321,7 @@ async function handleJsonify(request: Request, env: Env): Promise<Response> {
         const jobId = crypto.randomUUID();
         const now = new Date().toISOString();
         await putJob(env, { jobId, status: 'done', songId: cachedSongId, createdAt: now, updatedAt: now });
+        if (userId) await addSongToUser(env, userId, cachedSongId);
         console.log(`[jsonify] cache hit for "${titleHint}" / "${artistHint}" → ${cachedSongId}`);
         return jsonResponse({ jobId } as JsonifyQueuedResponse, 202);
       }
@@ -349,6 +347,7 @@ async function handleJsonify(request: Request, env: Env): Promise<Response> {
       imageUrl,
       targetLang: language!.target,
       learnerLang: language!.learner,
+      userId,
     });
 
     const responseBody: JsonifyQueuedResponse = { jobId };
@@ -402,7 +401,7 @@ function isTransient(error: unknown): boolean {
  * Queue consumer — runs the actual OpenAI generation for a queued job
  */
 async function processGenerationJob(env: Env, msg: JsonifyQueueMessage): Promise<void> {
-  const { jobId, rawLyrics, titleHint, artistHint, imageUrl, feedback, targetLang, learnerLang, isRetranslate } = msg;
+  const { jobId, rawLyrics, titleHint, artistHint, imageUrl, feedback, targetLang, learnerLang, isRetranslate, userId } = msg;
   const jobT0 = Date.now();
 
   const updateJob = async (patch: Partial<JobStatus>) => {
@@ -472,6 +471,8 @@ async function processGenerationJob(env: Env, msg: JsonifyQueueMessage): Promise
       const hash = await songCacheKey(titleHint, artistHint);
       await setCachedSongId(env, hash, finalSongId, titleHint, artistHint);
     }
+
+    if (userId) await addSongToUser(env, userId, finalSongId);
 
     await updateJob({ status: 'done', songId: finalSongId });
     console.log(`[queue] job ${jobId} done → ${finalSongId}`);
@@ -584,7 +585,7 @@ async function handleRetranslateLine(request: Request, env: Env, songId: string,
 /**
  * POST /api/songs/:songId/retranslate — Re-run AI on the whole song with optional feedback, saves as new version
  */
-async function handleRetranslateSong(request: Request, env: Env, songId: string): Promise<Response> {
+async function handleRetranslateSong(request: Request, env: Env, songId: string, userId?: string): Promise<Response> {
   try {
     const body = await request.json().catch(() => null) as { feedback?: string } | null;
     const feedback = typeof body?.feedback === 'string' ? body.feedback.trim() : undefined;
@@ -613,6 +614,7 @@ async function handleRetranslateSong(request: Request, env: Env, songId: string)
       targetLang: meta?.language?.target ?? 'hi',
       learnerLang: meta?.language?.learner ?? 'en',
       isRetranslate: true,
+      userId,
     });
 
     return jsonResponse({ jobId }, 202);
@@ -807,13 +809,51 @@ function isProtectedRoute(path: string, method: string): boolean {
   if (path === '/api/v1/songs' && method === 'GET') return true;
   if (path === '/api/v1/jsonify' && method === 'POST') return true;
   if (path === '/api/v1/lookup' && method === 'POST') return true;
-  // DELETE /api/v1/songs/:id  (but NOT sub-paths like /lines/:lineId/*)
   if (method === 'DELETE' && /^\/api\/v1\/songs\/[^/]+$/.test(path)) return true;
-  // Line edits and song retranslation
   if (method === 'PATCH' && path.includes('/lines/')) return true;
   if (method === 'POST' && /^\/api\/v1\/songs\/[^/]+\/retranslate$/.test(path)) return true;
   if (method === 'POST' && path.includes('/lines/')) return true;
+  if (path === '/api/v1/favorites' && (method === 'GET' || method === 'POST')) return true;
+  if (method === 'DELETE' && /^\/api\/v1\/favorites\/[^/]+$/.test(path)) return true;
   return false;
+}
+
+async function handleGetFavorites(env: Env, userId: string): Promise<Response> {
+  const favorites = await getUserFavorites(env, userId);
+  return jsonResponse({ favorites });
+}
+
+async function handleAddFavorite(request: Request, env: Env, userId: string): Promise<Response> {
+  const body = await request.json().catch(() => null);
+  if (!body || typeof (body as any).lineId !== 'string') {
+    return jsonResponse({ error: { code: 'INVALID_REQUEST', message: 'lineId required' } }, 400);
+  }
+  await addFavorite(env, userId, body as any);
+  return jsonResponse({ ok: true });
+}
+
+async function handleDeleteFavorite(env: Env, userId: string, lineId: string): Promise<Response> {
+  await removeFavorite(env, userId, lineId);
+  return jsonResponse({ ok: true });
+}
+
+/**
+ * POST /api/admin/seed-user-songs — One-shot: assign all existing songs to a given userId.
+ * Body: { userId: string }
+ */
+async function handleSeedUserSongs(request: Request, env: Env): Promise<Response> {
+  const body = await request.json().catch(() => null) as { userId?: unknown } | null;
+  if (!body || typeof body.userId !== 'string' || !body.userId.trim()) {
+    return jsonResponse({ error: { code: 'INVALID_REQUEST', message: 'userId is required' } }, 400);
+  }
+  const userId = body.userId.trim();
+  const metas = await listMetas(env);
+  let added = 0;
+  for (const meta of metas) {
+    await addSongToUser(env, userId, meta.songId);
+    added++;
+  }
+  return jsonResponse({ userId, added });
 }
 
 /**

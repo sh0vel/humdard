@@ -251,6 +251,83 @@ export async function deleteSong(
   }
 }
 
+// ── Per-User Song Lists ──────────────────────────────────────────────────────
+
+function getUserSongsKey(userId: string): string {
+  return `users/${userId}/songs.json`;
+}
+
+export async function getUserSongs(env: Env, userId: string): Promise<string[]> {
+  try {
+    const obj = await env.BUCKET.get(getUserSongsKey(userId));
+    if (!obj) return [];
+    return JSON.parse(await obj.text()) as string[];
+  } catch {
+    return [];
+  }
+}
+
+export async function addSongToUser(env: Env, userId: string, songId: string): Promise<void> {
+  const songs = await getUserSongs(env, userId);
+  if (songs.includes(songId)) return;
+  songs.unshift(songId); // newest first
+  await env.BUCKET.put(getUserSongsKey(userId), JSON.stringify(songs), {
+    httpMetadata: { contentType: 'application/json' },
+  });
+}
+
+export async function removeSongFromUser(env: Env, userId: string, songId: string): Promise<void> {
+  const songs = await getUserSongs(env, userId);
+  const filtered = songs.filter((id) => id !== songId);
+  if (filtered.length === songs.length) return;
+  await env.BUCKET.put(getUserSongsKey(userId), JSON.stringify(filtered), {
+    httpMetadata: { contentType: 'application/json' },
+  });
+}
+
+// ── Per-User Favorites ───────────────────────────────────────────────────────
+
+interface FavoriteLine {
+  lineId: string;
+  songId: string;
+  songTitle: string;
+  target: string;
+  roman: string;
+  natural?: string;
+}
+
+function getFavoritesKey(userId: string): string {
+  return `users/${userId}/favorites.json`;
+}
+
+export async function getUserFavorites(env: Env, userId: string): Promise<FavoriteLine[]> {
+  try {
+    const obj = await env.BUCKET.get(getFavoritesKey(userId));
+    if (!obj) return [];
+    return JSON.parse(await obj.text()) as FavoriteLine[];
+  } catch {
+    return [];
+  }
+}
+
+export async function addFavorite(env: Env, userId: string, line: FavoriteLine): Promise<void> {
+  const favorites = await getUserFavorites(env, userId);
+  if (favorites.some((f) => f.lineId === line.lineId && f.songId === line.songId)) return;
+  favorites.push(line);
+  await env.BUCKET.put(getFavoritesKey(userId), JSON.stringify(favorites), {
+    httpMetadata: { contentType: 'application/json' },
+  });
+}
+
+export async function removeFavorite(env: Env, userId: string, lineId: string): Promise<void> {
+  const favorites = await getUserFavorites(env, userId);
+  const filtered = favorites.filter((f) => f.lineId !== lineId);
+  if (filtered.length === favorites.length) return;
+  await env.BUCKET.put(getFavoritesKey(userId), JSON.stringify(filtered), {
+    httpMetadata: { contentType: 'application/json' },
+  });
+}
+
 // ── Song Cache ──────────────────────────────────────────────────────────────
 
 export async function songCacheKey(title: string, artist: string): Promise<string> {

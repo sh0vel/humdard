@@ -53,6 +53,7 @@ export interface JsonifyQueueMessage {
   targetLang: string;
   learnerLang: string;
   isRetranslate?: boolean;
+  userId?: string;
 }
 
 export interface JobStatus {

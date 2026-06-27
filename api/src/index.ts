@@ -459,8 +459,8 @@ async function processGenerationJob(env: Env, msg: JsonifyQueueMessage): Promise
     await putSong(env, finalSongId, validatedLesson);
     await putMeta(env, {
       songId: finalSongId,
-      title: validatedLesson.title,
-      artist: validatedLesson.source.artist,
+      title: titleHint ?? validatedLesson.title,
+      artist: artistHint ?? validatedLesson.source.artist,
       imageUrl,
       language: { target: targetLang, learner: learnerLang },
       openaiUsage,

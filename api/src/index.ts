@@ -7,7 +7,7 @@ import { Env, JsonifyQueuedResponse, JsonifyQueueMessage, SongsListResponse, Lyr
 import { handleCorsPreFlight, addCorsHeaders } from './cors';
 import { getSong, putSong, listMetas, putMeta, getMeta, updateLine, deleteLineFromSong, getJob, putJob, insertInstrumentalBefore, songCacheKey, getCachedSongId, setCachedSongId, getUserSongs, addSongToUser, removeSongFromUser, getUserFavorites, addFavorite, removeFavorite } from './storage';
 import { generateLyricLesson, retranslateLine } from './openai';
-import { lookupLyrics } from './lookup';
+import { lookupLyrics, cleanTitle } from './lookup';
 import { validateJsonifyRequest, validateLyricLesson, ValidationError, normalizeLyrics } from './validate';
 import { generateSongId, generateFullHash } from './utils';
 import { trackApiRequest, trackGeneration, trackRetranslateLine, trackLookup, normalizeEndpoint, parseLookupSource } from './analytics';
@@ -89,6 +89,11 @@ export default {
         response = await handleBackfillCache(env);
       } else if (path === '/api/v1/admin/seed-user-songs' && request.method === 'POST') {
         response = await handleSeedUserSongs(request, env);
+      } else if (path === '/api/v1/admin/patch-meta' && request.method === 'POST') {
+        response = await handlePatchMeta(request, env);
+      } else if (path === '/api/v1/admin/list-metas' && request.method === 'GET') {
+        const metas = await listMetas(env);
+        response = jsonResponse(metas);
       } else if (path === '/api/v1/favorites' && request.method === 'GET') {
         response = await handleGetFavorites(env, authedUserId!);
       } else if (path === '/api/v1/favorites' && request.method === 'POST') {
@@ -308,7 +313,8 @@ async function handleJsonify(request: Request, env: Env, userId?: string): Promi
       throw error;
     }
 
-    const { rawLyrics, titleHint, artistHint, language } = validatedRequest;
+    const { rawLyrics, titleHint: rawTitleHint, artistHint, language } = validatedRequest;
+    const titleHint = rawTitleHint ? cleanTitle(rawTitleHint) : rawTitleHint;
     const imageUrl = typeof (body as any).imageUrl === 'string' ? (body as any).imageUrl : undefined;
     const force = (body as any).force === true;
     const normalizedLyrics = normalizeLyrics(rawLyrics);
@@ -874,6 +880,25 @@ async function handleBackfillCache(env: Env): Promise<Response> {
   }
 
   return jsonResponse({ total: metas.length, written, skipped });
+}
+
+/**
+ * POST /api/v1/admin/patch-meta — Update title and/or artist for a song.
+ * Body: { songId: string, title?: string, artist?: string }
+ */
+async function handlePatchMeta(request: Request, env: Env): Promise<Response> {
+  const body = await request.json() as { songId?: string; title?: string; artist?: string };
+  if (!body.songId) return jsonResponse({ error: 'songId required' }, 400);
+  const existing = await getMeta(env, body.songId);
+  if (!existing) return jsonResponse({ error: 'song not found' }, 404);
+  const { createdAt: _c, updatedAt: _u, ...rest } = existing;
+  const updated = {
+    ...rest,
+    ...(body.title  !== undefined ? { title:  body.title  } : {}),
+    ...(body.artist !== undefined ? { artist: body.artist } : {}),
+  };
+  await putMeta(env, updated);
+  return jsonResponse({ ok: true, songId: body.songId, title: updated.title, artist: updated.artist });
 }
 
 /**

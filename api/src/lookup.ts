@@ -46,7 +46,7 @@ function stripResidualHtml(text: string): string {
     .trim();
 }
 
-function cleanTitle(title: string): string {
+export function cleanTitle(title: string): string {
   return title
     // "(From 'Movie')" / "(From "Movie")" / "(From Movie)"
     .replace(/\(\s*from\s+['"]?[^)]+['"]?\)/gi, '')

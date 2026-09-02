@@ -61,6 +61,9 @@ export interface JobStatus {
   status: 'pending' | 'done' | 'error';
   songId?: string;
   errorMessage?: string;
+  userId?: string;
+  title?: string;
+  imageUrl?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -5,7 +5,7 @@
 
 import { Env, JsonifyQueuedResponse, JsonifyQueueMessage, SongsListResponse, LyricLesson, LyricLine, JobStatus } from './types';
 import { handleCorsPreFlight, addCorsHeaders } from './cors';
-import { getSong, putSong, listMetas, putMeta, getMeta, updateLine, deleteLineFromSong, getJob, putJob, insertInstrumentalBefore, songCacheKey, getCachedSongId, setCachedSongId, getUserSongs, addSongToUser, removeSongFromUser, getUserFavorites, addFavorite, removeFavorite } from './storage';
+import { getSong, putSong, listMetas, putMeta, getMeta, updateLine, deleteLineFromSong, getJob, putJob, insertInstrumentalBefore, songCacheKey, getCachedSongId, setCachedSongId, getUserSongs, addSongToUser, removeSongFromUser, getUserFavorites, addFavorite, removeFavorite, addUserPendingJob, removeUserPendingJob, getUserPendingJobIds } from './storage';
 import { generateLyricLesson, retranslateLine } from './openai';
 import { lookupLyrics, cleanTitle } from './lookup';
 import { validateJsonifyRequest, validateLyricLesson, ValidationError, normalizeLyrics } from './validate';
@@ -19,8 +19,22 @@ import { requireAuth } from './auth';
 export default {
   async queue(batch: MessageBatch<JsonifyQueueMessage>, env: Env): Promise<void> {
     for (const message of batch.messages) {
-      await processGenerationJob(env, message.body);
-      message.ack();
+      try {
+        await processGenerationJob(env, message.body);
+      } catch (err) {
+        // processGenerationJob has its own catch; this fires only if updateJob itself fails (e.g. R2 down).
+        // Best-effort: mark the job as error so iOS polling exits cleanly.
+        const { jobId, userId } = message.body;
+        console.error(`[queue] unhandled exception for job ${jobId}:`, err);
+        try {
+          const existing = await getJob(env, jobId);
+          if (existing && existing.status === 'pending') {
+            await putJob(env, { ...existing, status: 'error', errorMessage: 'Generation failed unexpectedly', updatedAt: new Date().toISOString() });
+          }
+          if (userId) await removeUserPendingJob(env, userId, jobId);
+        } catch { /* ignore — ack regardless */ }
+      }
+      message.ack(); // Always ack — job status lives in R2, not the queue
     }
   },
 
@@ -74,6 +88,8 @@ export default {
         response = await handleRetranslateSong(request, env, songId, authedUserId);
       } else if (path === '/api/v1/jsonify' && request.method === 'POST') {
         response = await handleJsonify(request, env, authedUserId);
+      } else if (path === '/api/v1/jobs/pending' && request.method === 'GET') {
+        response = await handleGetPendingJobs(env, authedUserId!);
       } else if (path.startsWith('/api/v1/jobs/') && request.method === 'GET') {
         const jobId = path.split('/api/v1/jobs/')[1];
         response = await handleGetJob(request, env, jobId);
@@ -89,6 +105,8 @@ export default {
         response = await handleBackfillCache(env);
       } else if (path === '/api/v1/admin/seed-user-songs' && request.method === 'POST') {
         response = await handleSeedUserSongs(request, env);
+      } else if (path === '/api/v1/admin/backfill-titles' && request.method === 'POST') {
+        response = await handleBackfillTitles(env);
       } else if (path === '/api/v1/admin/patch-meta' && request.method === 'POST') {
         response = await handlePatchMeta(request, env);
       } else if (path === '/api/v1/admin/list-metas' && request.method === 'GET') {
@@ -340,9 +358,13 @@ async function handleJsonify(request: Request, env: Env, userId?: string): Promi
     await putJob(env, {
       jobId,
       status: 'pending',
+      userId,
+      title: titleHint,
+      imageUrl,
       createdAt: now,
       updatedAt: now,
     });
+    if (userId) await addUserPendingJob(env, userId, jobId);
 
     // Enqueue the generation work
     await env.GENERATION_QUEUE.send({
@@ -379,6 +401,19 @@ async function handleGetJob(_request: Request, env: Env, jobId: string): Promise
     return jsonResponse({ error: { code: 'NOT_FOUND', message: 'Job not found' } }, 404);
   }
   return jsonResponse(job, 200);
+}
+
+/**
+ * GET /api/v1/jobs/pending — Return all pending jobs for the authenticated user
+ */
+async function handleGetPendingJobs(env: Env, userId: string): Promise<Response> {
+  try {
+    const jobIds = await getUserPendingJobIds(env, userId);
+    const jobs = (await Promise.all(jobIds.map((id) => getJob(env, id)))).filter((j): j is JobStatus => j !== null);
+    return jsonResponse({ jobs });
+  } catch (error) {
+    return jsonResponse({ error: { code: 'INTERNAL_ERROR', message: String(error) } }, 500);
+  }
 }
 
 // ── Retry helpers ────────────────────────────────────────────────────────────
@@ -437,7 +472,7 @@ async function processGenerationJob(env: Env, msg: JsonifyQueueMessage): Promise
       }
       try {
         ({ lesson, usage: openaiUsage, timing } = await generateLyricLesson(
-          env, rawLyrics, titleHint, artistHint, tempSongId, targetLang, learnerLang, feedback
+          env, rawLyrics, tempSongId, targetLang, learnerLang, feedback
         ));
         lastError = undefined;
         break;
@@ -454,7 +489,11 @@ async function processGenerationJob(env: Env, msg: JsonifyQueueMessage): Promise
 
     const validatedLesson = validateLyricLesson(lesson!);
 
-    let finalSongId = await generateSongId(validatedLesson.title, rawLyrics);
+    // Always use the Spotify/user-provided title — never the AI's version (which may be native script)
+    const songTitle = titleHint ?? validatedLesson.title;
+    validatedLesson.title = songTitle;
+
+    let finalSongId = await generateSongId(songTitle, rawLyrics);
     if (await getSong(env, finalSongId)) {
       let v = 2;
       while (await getSong(env, `${finalSongId}-v${v}`)) v++;
@@ -465,7 +504,7 @@ async function processGenerationJob(env: Env, msg: JsonifyQueueMessage): Promise
     await putSong(env, finalSongId, validatedLesson);
     await putMeta(env, {
       songId: finalSongId,
-      title: titleHint ?? validatedLesson.title,
+      title: songTitle,
       artist: artistHint ?? validatedLesson.source.artist,
       imageUrl,
       language: { target: targetLang, learner: learnerLang },
@@ -479,6 +518,7 @@ async function processGenerationJob(env: Env, msg: JsonifyQueueMessage): Promise
     }
 
     if (userId) await addSongToUser(env, userId, finalSongId);
+    if (userId) await removeUserPendingJob(env, userId, jobId);
 
     await updateJob({ status: 'done', songId: finalSongId });
     console.log(`[queue] job ${jobId} done → ${finalSongId}`);
@@ -504,6 +544,7 @@ async function processGenerationJob(env: Env, msg: JsonifyQueueMessage): Promise
     const errMsg = error instanceof Error ? error.message : String(error);
     console.error(`[queue] job ${jobId} failed:`, errMsg);
     await updateJob({ status: 'error', errorMessage: errMsg });
+    if (userId) await removeUserPendingJob(env, userId, jobId);
 
     trackGeneration(env, {
       type: isRetranslate ? 'retranslate' : 'fresh',
@@ -571,7 +612,7 @@ async function handleRetranslateLine(request: Request, env: Env, songId: string,
     }
     const contextLines = allLines.slice(Math.max(0, targetIdx - 3), targetIdx + 4);
 
-    const result = await retranslateLine(env, lineId, contextLines, song.title, song.source?.artist ?? '', feedback);
+    const result = await retranslateLine(env, lineId, contextLines, feedback);
 
     const updated = await updateLine(env, songId, lineId, {
       text: { roman: result.roman, wordByWord: result.wordByWord, direct: result.direct, natural: result.natural },
@@ -606,14 +647,16 @@ async function handleRetranslateSong(request: Request, env: Env, songId: string,
       .flatMap(s => s.lines.filter(l => !l.isInstrumental).map(l => l.text.roman))
       .join('\n');
 
+    const englishTitle = meta?.title ?? song.title;
     const jobId = crypto.randomUUID();
     const now = new Date().toISOString();
-    await putJob(env, { jobId, status: 'pending', createdAt: now, updatedAt: now });
+    await putJob(env, { jobId, status: 'pending', userId, title: englishTitle, imageUrl: meta?.imageUrl, createdAt: now, updatedAt: now });
+    if (userId) await addUserPendingJob(env, userId, jobId);
 
     await env.GENERATION_QUEUE.send({
       jobId,
       rawLyrics,
-      titleHint: song.title,
+      titleHint: englishTitle,
       artistHint: song.source?.artist,
       imageUrl: meta?.imageUrl,
       feedback,
@@ -821,6 +864,7 @@ function isProtectedRoute(path: string, method: string): boolean {
   if (method === 'POST' && path.includes('/lines/')) return true;
   if (path === '/api/v1/favorites' && (method === 'GET' || method === 'POST')) return true;
   if (method === 'DELETE' && /^\/api\/v1\/favorites\/[^/]+$/.test(path)) return true;
+  if (path === '/api/v1/jobs/pending' && method === 'GET') return true;
   return false;
 }
 
@@ -880,6 +924,60 @@ async function handleBackfillCache(env: Env): Promise<Response> {
   }
 
   return jsonResponse({ total: metas.length, written, skipped });
+}
+
+/**
+ * POST /api/v1/admin/backfill-titles — Patch any song whose stored title doesn't match
+ * the original English title stored in the Spotify cache entry.
+ */
+async function handleBackfillTitles(env: Env): Promise<Response> {
+  // Collect all cache entries (they store the original English titleHint)
+  const allKeys: string[] = [];
+  let cursor: string | undefined;
+  let truncated = true;
+  while (truncated) {
+    const listed = await env.BUCKET.list({ prefix: 'cache/', cursor });
+    allKeys.push(...listed.objects.map(o => o.key).filter(k => k.endsWith('/meta.json')));
+    truncated = listed.truncated;
+    cursor = listed.truncated ? listed.cursor : undefined;
+  }
+
+  const results: { songId: string; from: string; to: string }[] = [];
+  let skipped = 0;
+
+  for (const key of allKeys) {
+    const obj = await env.BUCKET.get(key);
+    if (!obj) { skipped++; continue; }
+    const cache = JSON.parse(await obj.text()) as { title: string; artist?: string; songId: string };
+    if (!cache.songId || !cache.title) { skipped++; continue; }
+
+    const meta = await getMeta(env, cache.songId);
+    if (!meta) { skipped++; continue; }
+
+    // Only apply if the cache title is ASCII/Latin (skip Devanagari cache entries)
+    if (!/^[\x20-\x7E]+$/.test(cache.title)) { skipped++; continue; }
+
+    const needsPatch = meta.title !== cache.title;
+    if (!needsPatch) { skipped++; continue; }
+
+    // Patch metadata
+    await env.BUCKET.put(`meta/${cache.songId}.json`, JSON.stringify({
+      ...meta,
+      title: cache.title,
+      ...(cache.artist ? { artist: cache.artist } : {}),
+    }), { httpMetadata: { contentType: 'application/json' } });
+
+    // Patch lesson JSON title too
+    const song = await getSong(env, cache.songId);
+    if (song && song.title !== cache.title) {
+      song.title = cache.title;
+      await putSong(env, cache.songId, song);
+    }
+
+    results.push({ songId: cache.songId, from: meta.title, to: cache.title });
+  }
+
+  return jsonResponse({ scanned: allKeys.length, patched: results.length, skipped, results });
 }
 
 /**

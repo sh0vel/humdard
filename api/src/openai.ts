@@ -44,7 +44,7 @@ const BASE_LESSON_SCHEMA = {
     source: {
       type: 'object',
       properties: { artist: { type: 'string' } },
-      required: ['artist'],
+      required: [],
       additionalProperties: false,
     },
     sections: {
@@ -576,18 +576,14 @@ type BaseLyricLesson = Omit<LyricLesson, 'sections'> & {
 async function generateBase(
   env: Env,
   rawLyrics: string,
-  titleHint?: string,
-  artistHint?: string,
   lessonId?: string,
   feedback?: string
 ): Promise<{ base: BaseLyricLesson; promptTokens: number; completionTokens: number }> {
   let userPrompt = 'Parse and structure the following song lyrics.\n\n';
   userPrompt += `Raw Lyrics:\n${rawLyrics}\n\n`;
   if (feedback) userPrompt += `Translator feedback:\n${feedback}\n\n`;
-  if (titleHint) userPrompt += `Title hint: ${titleHint}\n`;
-  if (artistHint) userPrompt += `Artist hint: ${artistHint}\n`;
   if (lessonId) userPrompt += `Use lessonId: ${lessonId}\n`;
-  userPrompt += '\nDetect the language, produce target (native script), roman, and wordByWord for each line.';
+  userPrompt += 'Detect the language, produce target (native script) and roman for each line.';
 
   const { result, promptTokens, completionTokens } = await callOpenAI<BaseLyricLesson>(
     env,
@@ -618,9 +614,7 @@ interface FlatLine {
 async function generateTranslations(
   env: Env,
   lines: FlatLine[],
-  type: TranslationType,
-  titleHint?: string,
-  artistHint?: string
+  type: TranslationType
 ): Promise<{ map: Map<string, string>; errors: import('./types').GenerationError[]; promptTokens: number; completionTokens: number }> {
   const systemPrompt =
     type === 'direct' ? makeDirectPrompt() : makeNaturalPrompt();
@@ -629,12 +623,7 @@ async function generateTranslations(
     .map(l => `${l.lineId} | ${l.target} | ${l.roman}`)
     .join('\n');
 
-  let userPrompt = '';
-  if (titleHint || artistHint) {
-    userPrompt += `Song: "${titleHint ?? ''}"${artistHint ? ` by ${artistHint}` : ''}\n\n`;
-  }
-  userPrompt += `Lines (lineId | native script | romanization):\n${lineTable}\n\n`;
-  userPrompt += `Produce the ${type} translation for each lineId.`;
+  const userPrompt = `Lines (lineId | native script | romanization):\n${lineTable}\n\nProduce the ${type} translation for each lineId.`;
 
   let result: { lines: { lineId: string; translation: string }[] };
   let promptTokens = 0;
@@ -677,17 +666,11 @@ async function generateTranslations(
 
 async function generateTokens(
   env: Env,
-  lines: FlatLine[],
-  titleHint?: string,
-  artistHint?: string
+  lines: FlatLine[]
 ): Promise<{ map: Map<string, import('./types').LyricToken[]>; errors: import('./types').GenerationError[]; promptTokens: number; completionTokens: number }> {
-  const songCtx = titleHint || artistHint
-    ? `Song: "${titleHint ?? ''}"${artistHint ? ` by ${artistHint}` : ''}\n\n`
-    : '';
-
   const results = await Promise.all(
     lines.map(l => {
-      const userPrompt = `${songCtx}${l.lineId} | ${l.target} | ${l.roman}\n\nProduce tokens for this line.`;
+      const userPrompt = `${l.lineId} | ${l.target} | ${l.roman}\n\nProduce tokens for this line.`;
       return withRetry(
         () => callOpenAI<{ lines: { lineId: string; tokens: import('./types').LyricToken[] }[] }>(
           env,
@@ -729,8 +712,6 @@ async function generateTokens(
 export async function generateLyricLesson(
   env: Env,
   rawLyrics: string,
-  titleHint?: string,
-  artistHint?: string,
   lessonId?: string,
   _targetLang: string = 'hi',
   _learnerLang: string = 'en',
@@ -741,7 +722,7 @@ export async function generateLyricLesson(
   // Phase 1: structure + native script + roman
   const t0 = Date.now();
   const { base, promptTokens: p1, completionTokens: c1 } = await generateBase(
-    env, rawLyrics, titleHint, artistHint, lessonId, feedback
+    env, rawLyrics, lessonId, feedback
   );
   const phaseBaseMs = Date.now() - t0;
 
@@ -770,9 +751,9 @@ export async function generateLyricLesson(
     { map: naturalMap, errors: errsN, promptTokens: p2n, completionTokens: c2n },
     { map: tokenMap,   errors: errsT, promptTokens: p2t, completionTokens: c2t },
   ] = await Promise.all([
-    generateTranslations(env, uniqueLines, 'direct', titleHint, artistHint),
-    generateTranslations(env, uniqueLines, 'natural', titleHint, artistHint),
-    generateTokens(env, uniqueLines, titleHint, artistHint),
+    generateTranslations(env, uniqueLines, 'direct'),
+    generateTranslations(env, uniqueLines, 'natural'),
+    generateTokens(env, uniqueLines),
   ]);
   const phaseParallelMs = Date.now() - t1;
 
@@ -872,8 +853,6 @@ export async function retranslateLine(
   env: Env,
   targetLineId: string,
   allLines: Array<{ lineId: string; target: string; roman: string }>,
-  songTitle: string,
-  artist: string,
   feedback?: string
 ): Promise<RetranslateLine> {
   const systemPrompt = `You are an expert South Asian song translator for a language-learning app.
@@ -927,9 +906,7 @@ Rules:
     })
     .join('\n');
 
-  const userPrompt = `Song: "${songTitle}" by ${artist}
-
-All lines (lineId | native script | romanization):
+  const userPrompt = `All lines (lineId | native script | romanization):
 ${contextTable}${feedback ? `\n\nFeedback: ${feedback}` : ''}`;
 
   const { result } = await callOpenAI<RetranslateLine>(

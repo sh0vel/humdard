@@ -251,6 +251,40 @@ export async function deleteSong(
   }
 }
 
+// ── Per-User Pending Jobs ────────────────────────────────────────────────────
+
+function getUserPendingJobsKey(userId: string): string {
+  return `users/${userId}/pending-jobs.json`;
+}
+
+export async function getUserPendingJobIds(env: Env, userId: string): Promise<string[]> {
+  try {
+    const obj = await env.BUCKET.get(getUserPendingJobsKey(userId));
+    if (!obj) return [];
+    return JSON.parse(await obj.text()) as string[];
+  } catch {
+    return [];
+  }
+}
+
+export async function addUserPendingJob(env: Env, userId: string, jobId: string): Promise<void> {
+  const jobs = await getUserPendingJobIds(env, userId);
+  if (jobs.includes(jobId)) return;
+  jobs.unshift(jobId);
+  await env.BUCKET.put(getUserPendingJobsKey(userId), JSON.stringify(jobs), {
+    httpMetadata: { contentType: 'application/json' },
+  });
+}
+
+export async function removeUserPendingJob(env: Env, userId: string, jobId: string): Promise<void> {
+  const jobs = await getUserPendingJobIds(env, userId);
+  const filtered = jobs.filter((id) => id !== jobId);
+  if (filtered.length === jobs.length) return;
+  await env.BUCKET.put(getUserPendingJobsKey(userId), JSON.stringify(filtered), {
+    httpMetadata: { contentType: 'application/json' },
+  });
+}
+
 // ── Per-User Song Lists ──────────────────────────────────────────────────────
 
 function getUserSongsKey(userId: string): string {

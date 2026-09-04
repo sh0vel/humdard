@@ -996,6 +996,15 @@ async function handlePatchMeta(request: Request, env: Env): Promise<Response> {
     ...(body.artist !== undefined ? { artist: body.artist } : {}),
   };
   await putMeta(env, updated);
+
+  if (body.title !== undefined) {
+    const song = await getSong(env, body.songId);
+    if (song && song.title !== body.title) {
+      song.title = body.title;
+      await putSong(env, body.songId, song);
+    }
+  }
+
   return jsonResponse({ ok: true, songId: body.songId, title: updated.title, artist: updated.artist });
 }
 

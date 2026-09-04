@@ -43,7 +43,7 @@ const BASE_LESSON_SCHEMA = {
     },
     source: {
       type: 'object',
-      properties: { artist: { type: 'string' } },
+      properties: {},
       required: [],
       additionalProperties: false,
     },

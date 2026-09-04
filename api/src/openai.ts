@@ -21,7 +21,6 @@ const BASE_LESSON_SCHEMA = {
   properties: {
     schemaVersion: { type: 'string' },
     lessonId: { type: 'string' },
-    title: { type: 'string' },
     language: {
       type: 'object',
       properties: {
@@ -39,12 +38,6 @@ const BASE_LESSON_SCHEMA = {
         },
       },
       required: ['target', 'learner'],
-      additionalProperties: false,
-    },
-    source: {
-      type: 'object',
-      properties: {},
-      required: [],
       additionalProperties: false,
     },
     sections: {
@@ -82,7 +75,7 @@ const BASE_LESSON_SCHEMA = {
       },
     },
   },
-  required: ['schemaVersion', 'lessonId', 'title', 'language', 'source', 'sections'],
+  required: ['schemaVersion', 'lessonId', 'language', 'sections'],
   additionalProperties: false,
 };
 
@@ -560,7 +553,10 @@ async function callOpenAI<T>(
 // Phase 1: base structural call
 // ============================================================================
 
-type BaseLyricLesson = Omit<LyricLesson, 'sections'> & {
+type BaseLyricLesson = {
+  schemaVersion: string;
+  lessonId: string;
+  language: LyricLesson['language'];
   sections: Array<{
     sectionId: string;
     label: string;
@@ -762,7 +758,11 @@ export async function generateLyricLesson(
   // Merge everything into the full lesson — derive wordByWord from token glosses.
   // Duplicate lines look up results via their canonical lineId.
   const lesson: LyricLesson = {
-    ...base,
+    schemaVersion: base.schemaVersion,
+    lessonId: base.lessonId,
+    title: '',
+    language: base.language,
+    source: {},
     sections: base.sections.map(section => ({
       ...section,
       lines: section.lines.map(line => {

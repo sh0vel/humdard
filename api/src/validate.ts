@@ -138,14 +138,6 @@ export function validateLyricLesson(data: any): LyricLesson {
     );
   }
 
-  if (!data.title || typeof data.title !== 'string') {
-    throw new ValidationError(
-      'Invalid LyricLesson: missing or invalid title',
-      'BAD_MODEL_OUTPUT',
-      { field: 'title' }
-    );
-  }
-
   // Check language structure
   if (!data.language || typeof data.language !== 'object') {
     throw new ValidationError(
@@ -168,15 +160,6 @@ export function validateLyricLesson(data: any): LyricLesson {
       'Invalid LyricLesson: missing or invalid language.learner',
       'BAD_MODEL_OUTPUT',
       { field: 'language.learner' }
-    );
-  }
-
-  // Check source
-  if (!data.source || typeof data.source !== 'object') {
-    throw new ValidationError(
-      'Invalid LyricLesson: missing or invalid source',
-      'BAD_MODEL_OUTPUT',
-      { field: 'source' }
     );
   }
 

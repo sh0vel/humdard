@@ -370,6 +370,11 @@ export async function songCacheKey(title: string, artist: string): Promise<strin
   return Array.from(new Uint8Array(buffer)).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+export async function lyricsContentKey(normalizedLyrics: string): Promise<string> {
+  const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(normalizedLyrics.toLowerCase()));
+  return Array.from(new Uint8Array(buffer)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 export async function getCachedSongId(env: Env, hash: string): Promise<string | null> {
   try {
     const obj = await env.BUCKET.get(`cache/${hash}/meta.json`);

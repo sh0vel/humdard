@@ -5,7 +5,7 @@
 
 import { Env, JsonifyQueuedResponse, JsonifyQueueMessage, SongsListResponse, LyricLesson, LyricLine, JobStatus } from './types';
 import { handleCorsPreFlight, addCorsHeaders } from './cors';
-import { getSong, putSong, listMetas, putMeta, getMeta, updateLine, deleteLineFromSong, getJob, putJob, insertInstrumentalBefore, songCacheKey, getCachedSongId, setCachedSongId, getUserSongs, addSongToUser, removeSongFromUser, getUserFavorites, addFavorite, removeFavorite, addUserPendingJob, removeUserPendingJob, getUserPendingJobIds } from './storage';
+import { getSong, putSong, listMetas, putMeta, getMeta, updateLine, deleteLineFromSong, getJob, putJob, insertInstrumentalBefore, songCacheKey, lyricsContentKey, getCachedSongId, setCachedSongId, getUserSongs, addSongToUser, removeSongFromUser, getUserFavorites, addFavorite, removeFavorite, addUserPendingJob, removeUserPendingJob, getUserPendingJobIds } from './storage';
 import { generateLyricLesson, retranslateLine } from './openai';
 import { lookupLyrics, cleanTitle } from './lookup';
 import { validateJsonifyRequest, validateLyricLesson, ValidationError, normalizeLyrics } from './validate';
@@ -337,17 +337,23 @@ async function handleJsonify(request: Request, env: Env, userId?: string): Promi
     const force = (body as any).force === true;
     const normalizedLyrics = normalizeLyrics(rawLyrics);
 
-    // Cache check: skip when force=true or when title/artist are missing
-    if (!force && titleHint && artistHint) {
-      const hash = await songCacheKey(titleHint, artistHint);
+    // Cache check: skip when force=true
+    // Keyed on lyrics content so different lyrics always produce a fresh generation.
+    // Also validates the cached song still exists (handles deleted songs).
+    if (!force) {
+      const hash = await lyricsContentKey(normalizedLyrics);
       const cachedSongId = await getCachedSongId(env, hash);
       if (cachedSongId) {
-        const jobId = crypto.randomUUID();
-        const now = new Date().toISOString();
-        await putJob(env, { jobId, status: 'done', songId: cachedSongId, createdAt: now, updatedAt: now });
-        if (userId) await addSongToUser(env, userId, cachedSongId);
-        console.log(`[jsonify] cache hit for "${titleHint}" / "${artistHint}" → ${cachedSongId}`);
-        return jsonResponse({ jobId } as JsonifyQueuedResponse, 202);
+        const cachedSong = await getSong(env, cachedSongId);
+        if (cachedSong) {
+          const jobId = crypto.randomUUID();
+          const now = new Date().toISOString();
+          await putJob(env, { jobId, status: 'done', songId: cachedSongId, createdAt: now, updatedAt: now });
+          if (userId) await addSongToUser(env, userId, cachedSongId);
+          console.log(`[jsonify] lyrics cache hit → ${cachedSongId}`);
+          return jsonResponse({ jobId } as JsonifyQueuedResponse, 202);
+        }
+        console.log(`[jsonify] stale lyrics cache for ${cachedSongId} — song deleted, regenerating`);
       }
     }
 
@@ -511,11 +517,9 @@ async function processGenerationJob(env: Env, msg: JsonifyQueueMessage): Promise
       openaiUsage,
     });
 
-    // Write to cache so future identical requests return instantly
-    if (titleHint && artistHint) {
-      const hash = await songCacheKey(titleHint, artistHint);
-      await setCachedSongId(env, hash, finalSongId, titleHint, artistHint);
-    }
+    // Write to cache keyed on lyrics content
+    const lyricsHash = await lyricsContentKey(normalizeLyrics(rawLyrics));
+    await setCachedSongId(env, lyricsHash, finalSongId, titleHint ?? '', artistHint ?? '');
 
     if (userId) await addSongToUser(env, userId, finalSongId);
     if (userId) await removeUserPendingJob(env, userId, jobId);
